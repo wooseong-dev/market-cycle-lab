@@ -35,11 +35,26 @@
       <p class="muted">{{ asset.metrics.current_date }} 기준</p>
     </div>
 
-    <div class="big-chart" data-points='{{ asset.chart | tojson }}'></div>
+    {% set ma = asset.technical["moving_average"] %}
+    {% set fib = asset.technical["fibonacci"] %}
+
+    <div class="chart-toolbar">
+      <button type="button" class="chart-toggle active" data-overlay="ma">이동평균선</button>
+      <button type="button" class="chart-toggle active" data-overlay="fib">피보나치</button>
+      <button type="button" class="chart-toggle active" data-overlay="labels">가격 라벨</button>
+    </div>
+
+    <div
+      class="big-chart interactive-chart"
+      data-points='{{ asset.chart | tojson }}'
+      data-ma='{{ ma["items"] | tojson }}'
+      data-fib='{{ fib["levels"] | tojson }}'
+      data-current='{{ asset.metrics.current_price }}'
+    ></div>
 
     <div class="chart-help">
-      차트는 지난 5년의 종가 흐름입니다. 오른쪽 끝이 현재 가격입니다.
-      위아래 숫자보다 흐름의 위치를 보는 용도입니다.
+      마우스를 차트 위에 올리면 해당 위치의 날짜와 가격을 볼 수 있습니다.
+      이동평균선과 피보나치 레벨은 위 버튼으로 켜고 끌 수 있습니다.
     </div>
   </div>
 
@@ -92,9 +107,6 @@
       <p>최근 90일 동안 얼마나 심하게 흔들렸는지 보는 지표입니다.</p>
     </div>
   </div>
-
-  {% set ma = asset.technical["moving_average"] %}
-  {% set fib = asset.technical["fibonacci"] %}
 
   <section class="technical-grid">
     <div class="panel ta-panel">
