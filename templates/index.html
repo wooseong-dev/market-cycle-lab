@@ -4,10 +4,11 @@
 <section class="hero">
   <div class="container hero-grid">
     <div>
-      <p class="eyebrow">코인 · 증시 · 매크로 사이클</p>
-      <h1>지금 시장은 고점 근처일까, 조정 중일까?</h1>
+      <p class="eyebrow">시장 위치 · 버티기 난이도 · 조정 통계</p>
+      <h1>지금 이 자산은 싼 걸까, 버티기 어려운 걸까?</h1>
       <p class="hero-copy">
-        어려운 지표를 몰라도 됩니다. 작년 이맘때 가격, 고점 대비 하락률, 현재 조정 기간을 한눈에 보여줍니다.
+        가격만 보여주지 않습니다. 고점 대비 하락률, 현재 조정 기간, 작년 오늘 투자 결과,
+        버티기 난이도를 한 번에 보여줍니다.
       </p>
 
       <form class="asset-search" action="/analyze" method="get">
@@ -21,46 +22,43 @@
 
       <div class="hero-actions">
         <a href="#dashboard" class="button primary">대표 자산 보기</a>
-        <a href="/asset/BTC-USD" class="button ghost">비트코인 자세히 보기</a>
+        <a href="/rankings/stress" class="button ghost">스트레스 랭킹</a>
       </div>
     </div>
 
-    <div class="glass-card">
-      <span>오늘의 사이클 힌트</span>
-      <strong>{{ cycle_label_ko(assets[0].metrics.cycle_label) }}</strong>
-      <p>{{ assets[0].metrics.cycle_desc_ko }}</p>
-      <small>기준 자산: 비트코인</small>
+    <div class="glass-card stress-hero-card">
+      <span>오늘의 버티기 난이도</span>
+      <strong>{{ assets[0].difficulty.score }}</strong>
+      <p>{{ assets[0].difficulty.label }}</p>
+      <small>{{ assets[0].difficulty.tone }}</small>
     </div>
   </div>
 </section>
 
-<section class="container beginner-box">
-  <div>
-    <h2>이 사이트는 무엇을 보여주나요?</h2>
-    <p>
-      가격이 올랐는지 내렸는지만 보는 사이트가 아닙니다.
-      지금 가격이 과거 고점과 비교해 얼마나 내려와 있는지, 조정이 보통보다 긴지 짧은지를 보여줍니다.
-    </p>
-  </div>
+<section class="container feature-grid">
+  <a href="/rankings/stress" class="feature-card">
+    <span>01</span>
+    <h2>시장 스트레스 랭킹</h2>
+    <p>버티기 난이도가 높은 자산을 한눈에 확인합니다.</p>
+  </a>
 
-  <div class="explain-grid">
-    <div>
-      <b>작년 이맘때 가격</b>
-      <span>1년 전과 비교해 지금이 비싼지 싼지 봅니다.</span>
-    </div>
-    <div>
-      <b>고점 대비 하락률</b>
-      <span>최고가에서 얼마나 내려왔는지 봅니다.</span>
-    </div>
-    <div>
-      <b>현재 조정 기간</b>
-      <span>전고점을 회복하지 못한 기간입니다.</span>
-    </div>
-    <div>
-      <b>위험 점수</b>
-      <span>하락률과 변동성을 섞어 만든 참고 점수입니다.</span>
-    </div>
-  </div>
+  <a href="/tools/last-year" class="feature-card">
+    <span>02</span>
+    <h2>작년 오늘 샀다면</h2>
+    <p>1년 전 투자했을 때 현재 얼마가 되었는지 계산합니다.</p>
+  </a>
+
+  <a href="/rankings/drawdown" class="feature-card">
+    <span>03</span>
+    <h2>고점 대비 하락률</h2>
+    <p>최근 5년 고점에서 얼마나 내려왔는지 비교합니다.</p>
+  </a>
+
+  <a href="/analysis" class="feature-card">
+    <span>04</span>
+    <h2>분석 노트</h2>
+    <p>차트 스냅샷과 관찰형 분석을 쌓아가는 공간입니다.</p>
+  </a>
 </section>
 
 <section id="dashboard" class="container">
@@ -88,71 +86,103 @@
 
       <div class="metric-grid">
         <div>
-          <span>현재가</span>
-          <strong>${{ fmt_price(asset.metrics.current_price) }}</strong>
+          <span>버티기 난이도</span>
+          <strong>{{ asset.difficulty.score }}</strong>
         </div>
         <div>
-          <span>작년 가격</span>
-          <strong>${{ fmt_price(asset.metrics.one_year_price) }}</strong>
-        </div>
-        <div>
-          <span>1년 변화</span>
-          <strong class="{{ pct_class(asset.metrics.one_year_change) }}">
-            {{ fmt_pct(asset.metrics.one_year_change) }}
-          </strong>
+          <span>작년 투자 결과</span>
+          <strong class="{{ pct_class(asset.last_year_result.return_pct) }}">{{ fmt_pct(asset.last_year_result.return_pct) }}</strong>
         </div>
         <div>
           <span>고점 대비</span>
           <strong class="down">{{ fmt_pct(asset.metrics.ath_drawdown) }}</strong>
         </div>
+        <div>
+          <span>현재 조정</span>
+          <strong>{{ fmt_days(asset.metrics.current_dd_days) }}</strong>
+        </div>
       </div>
 
       <div class="plain-note">
-        {{ drawdown_text(asset.metrics.ath_drawdown) }}
+        {{ asset.auto_interpretation.summary }}
       </div>
 
       <div class="cycle-row">
-        <span>{{ cycle_label_ko(asset.metrics.cycle_label) }}</span>
+        <span>{{ asset.difficulty.label }}</span>
         <div class="risk-bar">
-          <i style="width: {{ asset.metrics.risk_score }}%"></i>
+          <i style="width: {{ asset.difficulty.score }}%"></i>
         </div>
-        <b>{{ asset.metrics.risk_score }}</b>
+        <b>{{ asset.difficulty.score }}</b>
       </div>
     </article>
     {% endfor %}
   </div>
 </section>
 
-<section class="container split-section">
+<section class="container triple-section">
   <div class="panel">
-    <p class="eyebrow">코인</p>
-    <h2>코인 조정 기간 보기</h2>
-
+    <p class="eyebrow">랭킹</p>
+    <h2>버티기 난이도 TOP 5</h2>
     <div class="table-like">
-      {% for asset in crypto %}
+      {% for asset in stress_ranking %}
       <a href="/asset/{{ asset.ticker }}" class="table-row">
         <span>{{ asset.symbol }}</span>
-        <b>{{ fmt_pct(asset.metrics.ath_drawdown) }}</b>
-        <em>현재 조정 {{ fmt_days(asset.metrics.current_dd_days) }}</em>
+        <b>{{ asset.difficulty.score }}</b>
+        <em>{{ asset.difficulty.label }}</em>
       </a>
       {% endfor %}
     </div>
   </div>
 
   <div class="panel">
-    <p class="eyebrow">증시와 매크로</p>
-    <h2>주식·금·유가·달러 비교</h2>
-
+    <p class="eyebrow">랭킹</p>
+    <h2>고점 대비 하락률</h2>
     <div class="table-like">
-      {% for asset in equity + macro %}
+      {% for asset in drawdown_ranking %}
       <a href="/asset/{{ asset.ticker }}" class="table-row">
         <span>{{ asset.symbol }}</span>
-        <b class="{{ pct_class(asset.metrics.one_year_change) }}">{{ fmt_pct(asset.metrics.one_year_change) }}</b>
-        <em>최장 조정 {{ fmt_days(asset.metrics.max_dd_duration) }}</em>
+        <b class="down">{{ fmt_pct(asset.metrics.ath_drawdown) }}</b>
+        <em>고점 대비</em>
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="panel">
+    <p class="eyebrow">랭킹</p>
+    <h2>현재 조정 기간</h2>
+    <div class="table-like">
+      {% for asset in correction_ranking %}
+      <a href="/asset/{{ asset.ticker }}" class="table-row">
+        <span>{{ asset.symbol }}</span>
+        <b>{{ fmt_days(asset.metrics.current_dd_days) }}</b>
+        <em>전고점 미회복 기간</em>
       </a>
       {% endfor %}
     </div>
   </div>
 </section>
+
+{% if latest_posts %}
+<section class="container">
+  <div class="section-head">
+    <div>
+      <p class="eyebrow">분석 노트</p>
+      <h2>최근 관찰 기록</h2>
+    </div>
+    <a href="/analysis" class="button ghost">전체 보기</a>
+  </div>
+
+  <div class="post-grid">
+    {% for post in latest_posts %}
+    <a href="/analysis/{{ post.slug }}" class="post-card">
+      <span>{{ post.date }} · {{ post.symbol }}</span>
+      <h3>{{ post.title }}</h3>
+      <p>{{ post.summary or "시장 구조와 관찰 구간을 기록한 분석 노트입니다." }}</p>
+    </a>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
 
 {% endblock %}

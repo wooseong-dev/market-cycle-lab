@@ -7,8 +7,8 @@
       <p class="eyebrow">{{ asset_type_ko(asset.type) }} · {{ asset.symbol }}</p>
       <h1>{{ asset.name }} 사이클 분석</h1>
       <p>
-        이 페이지는 {{ asset.name }}이 현재 고점 근처인지, 깊은 조정 중인지,
-        1년 전과 비교해 어느 정도 위치인지 보여줍니다.
+        이 페이지는 {{ asset.name }}의 현재 가격 위치, 버티기 난이도,
+        작년 오늘 투자 결과, 조정 기간을 함께 보여줍니다.
       </p>
 
       {% if asset.fallback %}
@@ -17,15 +17,32 @@
     </div>
 
     <div class="score-card">
-      <span>위험 점수</span>
-      <strong>{{ asset.metrics.risk_score }}</strong>
-      <p>{{ cycle_label_ko(asset.metrics.cycle_label) }}</p>
-      <small>{{ risk_text(asset.metrics.risk_score) }}</small>
+      <span>버티기 난이도</span>
+      <strong>{{ asset.difficulty.score }}</strong>
+      <p>{{ asset.difficulty.label }}</p>
+      <small>{{ asset.difficulty.tone }}</small>
     </div>
   </div>
 </section>
 
 <section class="container">
+  <div class="panel insight-panel">
+    <div class="section-head compact">
+      <div>
+        <p class="eyebrow">시장 위치 해석</p>
+        <h2>{{ asset.auto_interpretation.title }}</h2>
+      </div>
+      <span class="fib-chip">{{ asset.difficulty.label }}</span>
+    </div>
+    <p class="ta-state">{{ asset.auto_interpretation.summary }}</p>
+
+    <div class="insight-list">
+      {% for item in asset.auto_interpretation.bullets %}
+      <div>{{ item }}</div>
+      {% endfor %}
+    </div>
+  </div>
+
   <div class="panel">
     <div class="section-head">
       <div>
@@ -66,21 +83,20 @@
 
     <div class="chart-help">
       차트 위에서 드래그하면 좌우로 이동하고, 마우스 휠로 확대/축소할 수 있습니다.
-      우측 가격축과 하단 시간축은 자동으로 조정됩니다.
     </div>
   </div>
 
   <div class="detail-metrics">
-    <div class="metric-card">
-      <span>현재가</span>
-      <strong>${{ fmt_price(asset.metrics.current_price) }}</strong>
-      <p>가장 최근 종가 기준 가격입니다.</p>
+    <div class="metric-card stress-card">
+      <span>버티기 난이도</span>
+      <strong>{{ asset.difficulty.score }}</strong>
+      <p>{{ asset.difficulty.label }}</p>
     </div>
 
     <div class="metric-card">
-      <span>작년 이맘때 가격</span>
-      <strong>${{ fmt_price(asset.metrics.one_year_price) }}</strong>
-      <p>{{ asset.metrics.one_year_date }} 기준 · {{ fmt_pct(asset.metrics.one_year_change) }}</p>
+      <span>작년 100만 원 투자</span>
+      <strong class="{{ pct_class(asset.last_year_result.profit) }}">{{ money_krw(asset.last_year_result.current_value) }}</strong>
+      <p>{{ fmt_pct(asset.last_year_result.return_pct) }} · 손익 {{ money_krw(asset.last_year_result.profit) }}</p>
     </div>
 
     <div class="metric-card">
@@ -96,21 +112,21 @@
     </div>
 
     <div class="metric-card">
+      <span>현재가</span>
+      <strong>${{ fmt_price(asset.metrics.current_price) }}</strong>
+      <p>가장 최근 종가 기준 가격입니다.</p>
+    </div>
+
+    <div class="metric-card">
+      <span>작년 이맘때 가격</span>
+      <strong>${{ fmt_price(asset.metrics.one_year_price) }}</strong>
+      <p>{{ asset.metrics.one_year_date }} 기준 · {{ fmt_pct(asset.metrics.one_year_change) }}</p>
+    </div>
+
+    <div class="metric-card">
       <span>평균 조정 기간</span>
       <strong>{{ fmt_days(asset.metrics.avg_dd_duration) }}</strong>
       <p>전고점 아래에 머문 평균 기간입니다.</p>
-    </div>
-
-    <div class="metric-card">
-      <span>최장 조정 기간</span>
-      <strong>{{ fmt_days(asset.metrics.max_dd_duration) }}</strong>
-      <p>최근 5년 안에서 가장 길었던 조정입니다.</p>
-    </div>
-
-    <div class="metric-card">
-      <span>20% 이상 하락 횟수</span>
-      <strong>{{ asset.metrics.bear_period_count }}회</strong>
-      <p>고점 대비 20% 이상 빠진 구간의 횟수입니다.</p>
     </div>
 
     <div class="metric-card">
@@ -119,6 +135,51 @@
       <p>최근 90일 동안 얼마나 심하게 흔들렸는지 보는 지표입니다.</p>
     </div>
   </div>
+
+  <section class="technical-grid">
+    <div class="panel ta-panel">
+      <div class="section-head compact">
+        <div>
+          <p class="eyebrow">버티기 난이도 구성</p>
+          <h2>왜 이 점수인가?</h2>
+        </div>
+        <span class="ta-score">{{ asset.difficulty.score }}</span>
+      </div>
+
+      <p class="muted">{{ asset.difficulty.tone }}</p>
+
+      <div class="insight-list">
+        {% for reason in asset.difficulty.reasons %}
+        <div>{{ reason }}</div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="panel ta-panel">
+      <div class="section-head compact">
+        <div>
+          <p class="eyebrow">작년 오늘 샀다면</p>
+          <h2>100만 원 투자 결과</h2>
+        </div>
+        <span class="fib-chip {{ pct_class(asset.last_year_result.profit) }}">{{ fmt_pct(asset.last_year_result.return_pct) }}</span>
+      </div>
+
+      <p class="ta-state">{{ asset.last_year_result.summary }}</p>
+
+      <div class="ma-list">
+        <div class="ma-row">
+          <span>투자금</span>
+          <b>{{ money_krw(asset.last_year_result.amount) }}</b>
+          <em>기준</em>
+        </div>
+        <div class="ma-row">
+          <span>현재 가치</span>
+          <b>{{ money_krw(asset.last_year_result.current_value) }}</b>
+          <em class="{{ pct_class(asset.last_year_result.profit) }}">{{ money_krw(asset.last_year_result.profit) }}</em>
+        </div>
+      </div>
+    </div>
+  </section>
 
   <section class="technical-grid">
     <div class="panel ta-panel">
@@ -145,12 +206,6 @@
             {% endif %}
           </em>
         </div>
-        {% else %}
-        <div class="ma-row">
-          <span>데이터 부족</span>
-          <b>-</b>
-          <em>계산 불가</em>
-        </div>
         {% endfor %}
       </div>
     </div>
@@ -158,8 +213,8 @@
     <div class="panel ta-panel">
       <div class="section-head compact">
         <div>
-          <p class="eyebrow">피보나치 분석</p>
-          <h2>기본 되돌림</h2>
+          <p class="eyebrow">피보나치 참고</p>
+          <h2>기계 계산 참고값</h2>
         </div>
 
         {% if fib["available"] %}
@@ -169,23 +224,18 @@
         {% endif %}
       </div>
 
-      <p class="ta-state">{{ fib["direction"] | default("데이터 부족") }}</p>
-      <p class="muted">{{ fib["summary"] | default("피보나치 데이터를 계산하지 못했습니다.") }}</p>
+      <p class="muted">
+        피보나치는 스윙 기준점에 따라 해석이 달라집니다. 아래 값은 자동 계산 참고값이며,
+        확정 분석이 아닙니다.
+      </p>
 
       {% if fib["available"] %}
-      <div class="fib-range">
-        <span>저점 ${{ fmt_price(fib["low"]["price"]) }}</span>
-        <span>고점 ${{ fmt_price(fib["high"]["price"]) }}</span>
-      </div>
-
       <div class="fib-levels">
         {% for level in fib["levels"] %}
         <div class="fib-row {% if level["label"] == fib["nearest"]["label"] %}nearest{% endif %}">
           <span>{{ level["label"] }}</span>
           <b>${{ fmt_price(level["price"]) }}</b>
-          <em class="{{ pct_class(level["distance_pct"]) }}">
-            {{ fmt_pct(level["distance_pct"]) }}
-          </em>
+          <em class="{{ pct_class(level["distance_pct"]) }}">{{ fmt_pct(level["distance_pct"]) }}</em>
         </div>
         {% endfor %}
       </div>
@@ -193,13 +243,31 @@
     </div>
   </section>
 
+  {% if related_posts %}
+  <div class="section-head">
+    <div>
+      <p class="eyebrow">분석 노트</p>
+      <h2>{{ asset.symbol }} 관련 관찰 기록</h2>
+    </div>
+    <a href="/analysis" class="button ghost">전체 보기</a>
+  </div>
+
+  <div class="post-grid">
+    {% for post in related_posts %}
+    <a href="/analysis/{{ post.slug }}" class="post-card">
+      <span>{{ post.date }} · {{ post.status }}</span>
+      <h3>{{ post.title }}</h3>
+      <p>{{ post.summary }}</p>
+    </a>
+    {% endfor %}
+  </div>
+  {% endif %}
+
   <div class="panel interpretation">
-    <p class="eyebrow">초심자 해석</p>
-    <h2>{{ cycle_label_ko(asset.metrics.cycle_label) }}</h2>
-    <p>{{ asset.metrics.cycle_desc_ko }}</p>
-    <p>{{ drawdown_text(asset.metrics.ath_drawdown) }}</p>
+    <p class="eyebrow">주의</p>
+    <h2>이 페이지는 매수·매도 신호가 아닙니다</h2>
     <p class="muted">
-      이 자료는 과거 가격 데이터 기반의 참고용입니다. 매수·매도 추천이 아닙니다.
+      이 자료는 과거 가격 데이터 기반의 참고용입니다.
       실제 판단에는 금리, 달러, 유동성, 뉴스, 정책, 실적을 함께 봐야 합니다.
     </p>
   </div>

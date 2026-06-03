@@ -11,6 +11,8 @@ from app.assets import ASSETS, DEFAULT_ASSETS
 from app.data import get_history
 from app.market_math import calculate_metrics, to_chart_points
 from app.technical_analysis import analyze_technical
+from app.insights import attach_insights
+from app.analysis_content import load_analysis_posts, get_analysis_post, get_related_posts
 
 settings = get_settings()
 
@@ -40,6 +42,12 @@ def pct_class(value):
     if value is None:
         return ""
     return "up" if value >= 0 else "down"
+
+
+def money_krw(value):
+    if value is None:
+        return "-"
+    return f"{value:,.0f}원"
 
 
 def fmt_days(value):
@@ -98,7 +106,6 @@ def clean_symbol(symbol: str) -> str:
     cleaned = symbol.strip().upper().replace(" ", "")
 
     # 한국 주식 코드 6자리만 입력하면 기본적으로 코스피(.KS)로 처리
-    # 예: 012450 -> 012450.KS
     if cleaned.isdigit() and len(cleaned) == 6:
         return f"{cleaned}.KS"
 
@@ -136,6 +143,7 @@ def custom_asset_info(symbol: str):
 templates.env.globals["fmt_price"] = fmt_price
 templates.env.globals["fmt_pct"] = fmt_pct
 templates.env.globals["pct_class"] = pct_class
+templates.env.globals["money_krw"] = money_krw
 templates.env.globals["fmt_days"] = fmt_days
 templates.env.globals["asset_type_ko"] = asset_type_ko
 templates.env.globals["cycle_label_ko"] = cycle_label_ko
@@ -143,7 +151,7 @@ templates.env.globals["risk_text"] = risk_text
 templates.env.globals["drawdown_text"] = drawdown_text
 
 
-def build_asset(symbol: str):
+def build_asset(symbol: str, amount: float = 1_000_000):
     symbol = clean_symbol(symbol)
 
     info = ASSETS.get(symbol) or custom_asset_info(symbol)
@@ -156,7 +164,7 @@ def build_asset(symbol: str):
 
     technical = analyze_technical(df)
 
-    return {
+    asset = {
         "ticker": symbol,
         **info,
         "metrics": metrics,
@@ -165,13 +173,23 @@ def build_asset(symbol: str):
         "fallback": fallback,
     }
 
+    return attach_insights(asset, amount=amount)
+
+
+def build_default_assets(amount: float = 1_000_000):
+    return [build_asset(symbol, amount=amount) for symbol in DEFAULT_ASSETS]
+
 
 @app.get("/", response_class=HTMLResponse)
 def home(request: Request):
-    assets = [build_asset(symbol) for symbol in DEFAULT_ASSETS]
+    assets = build_default_assets()
     crypto = [a for a in assets if a["type"] == "Crypto"]
     equity = [a for a in assets if a["type"] == "Equity"]
     macro = [a for a in assets if a["type"] in ["Commodity", "Macro"]]
+
+    stress_ranking = sorted(assets, key=lambda a: a["difficulty"]["score"], reverse=True)[:5]
+    drawdown_ranking = sorted(assets, key=lambda a: a["metrics"].get("ath_drawdown") or 0)[:5]
+    correction_ranking = sorted(assets, key=lambda a: a["metrics"].get("current_dd_days") or 0, reverse=True)[:5]
 
     return templates.TemplateResponse(
         "index.html",
@@ -182,8 +200,12 @@ def home(request: Request):
             "crypto": crypto,
             "equity": equity,
             "macro": macro,
+            "stress_ranking": stress_ranking,
+            "drawdown_ranking": drawdown_ranking,
+            "correction_ranking": correction_ranking,
+            "latest_posts": load_analysis_posts()[:3],
             "page_title": settings.site_name,
-            "page_description": "코인과 증시의 가격 사이클, 작년 이맘때 가격, 평균 조정 기간, 고점 대비 하락률을 쉽게 보여주는 시장 대시보드.",
+            "page_description": "코인과 증시의 현재 위치, 버티기 난이도, 작년 대비 수익률, 조정 기간을 쉽게 보여주는 시장 사이클 대시보드.",
             "now": datetime.now(timezone.utc),
         },
     )
@@ -198,6 +220,7 @@ def analyze(symbol: str = Query(..., min_length=1)):
 @app.get("/asset/{symbol:path}", response_class=HTMLResponse)
 def asset_detail(symbol: str, request: Request):
     asset = build_asset(symbol)
+    related_posts = get_related_posts(asset["ticker"], limit=3)
 
     return templates.TemplateResponse(
         "asset.html",
@@ -205,15 +228,107 @@ def asset_detail(symbol: str, request: Request):
             "request": request,
             "settings": settings,
             "asset": asset,
+            "related_posts": related_posts,
             "page_title": f"{asset['name']} 사이클 분석",
-            "page_description": f"{asset['name']}의 작년 이맘때 가격, 고점 대비 하락률, 평균 조정 기간, 현재 사이클 위치.",
+            "page_description": f"{asset['name']}의 버티기 난이도, 작년 이맘때 수익률, 고점 대비 하락률, 평균 조정 기간.",
+        },
+    )
+
+
+@app.get("/rankings/{kind}", response_class=HTMLResponse)
+def rankings(kind: str, request: Request):
+    assets = build_default_assets()
+
+    if kind == "stress":
+        title = "시장 스트레스 랭킹"
+        description = "버티기 난이도가 높은 자산을 순서대로 보여줍니다."
+        assets = sorted(assets, key=lambda a: a["difficulty"]["score"], reverse=True)
+    elif kind == "drawdown":
+        title = "고점 대비 하락률 랭킹"
+        description = "최근 5년 고점 대비 많이 내려온 자산을 보여줍니다."
+        assets = sorted(assets, key=lambda a: a["metrics"].get("ath_drawdown") or 0)
+    elif kind == "correction":
+        title = "현재 조정 기간 랭킹"
+        description = "전고점을 회복하지 못한 기간이 긴 자산을 보여줍니다."
+        assets = sorted(assets, key=lambda a: a["metrics"].get("current_dd_days") or 0, reverse=True)
+    else:
+        raise HTTPException(status_code=404, detail="Ranking not found")
+
+    return templates.TemplateResponse(
+        "rankings.html",
+        {
+            "request": request,
+            "settings": settings,
+            "kind": kind,
+            "ranking_title": title,
+            "ranking_description": description,
+            "assets": assets,
+            "page_title": title,
+            "page_description": description,
+        },
+    )
+
+
+@app.get("/tools/last-year", response_class=HTMLResponse)
+def last_year_tool(
+    request: Request,
+    symbol: str = Query("BTC-USD"),
+    amount: float = Query(1_000_000),
+):
+    asset = build_asset(symbol, amount=amount)
+
+    return templates.TemplateResponse(
+        "last_year_tool.html",
+        {
+            "request": request,
+            "settings": settings,
+            "asset": asset,
+            "symbol": clean_symbol(symbol),
+            "amount": amount,
+            "page_title": "작년 오늘 샀다면 계산기",
+            "page_description": "작년 이맘때 투자했다면 현재 얼마가 되었는지 계산합니다.",
+        },
+    )
+
+
+@app.get("/analysis", response_class=HTMLResponse)
+def analysis_list(request: Request):
+    posts = load_analysis_posts()
+
+    return templates.TemplateResponse(
+        "analysis_list.html",
+        {
+            "request": request,
+            "settings": settings,
+            "posts": posts,
+            "page_title": "분석 노트",
+            "page_description": "시장 사이클과 자산별 관찰 기록을 모아둔 분석 노트입니다.",
+        },
+    )
+
+
+@app.get("/analysis/{slug}", response_class=HTMLResponse)
+def analysis_detail(slug: str, request: Request):
+    post = get_analysis_post(slug)
+
+    if not post:
+        raise HTTPException(status_code=404, detail="Analysis post not found")
+
+    return templates.TemplateResponse(
+        "analysis_detail.html",
+        {
+            "request": request,
+            "settings": settings,
+            "post": post,
+            "page_title": post["title"],
+            "page_description": post.get("summary") or post["title"],
         },
     )
 
 
 @app.get("/api/assets")
 def api_assets():
-    assets = [build_asset(symbol) for symbol in DEFAULT_ASSETS]
+    assets = build_default_assets()
     return JSONResponse(assets)
 
 
@@ -236,12 +351,22 @@ def sitemap():
     today = datetime.now(timezone.utc).date().isoformat()
 
     urls = [
-        f"<url><loc>{settings.site_url}/</loc><lastmod>{today}</lastmod></url>"
+        f"<url><loc>{settings.site_url}/</loc><lastmod>{today}</lastmod></url>",
+        f"<url><loc>{settings.site_url}/rankings/stress</loc><lastmod>{today}</lastmod></url>",
+        f"<url><loc>{settings.site_url}/rankings/drawdown</loc><lastmod>{today}</lastmod></url>",
+        f"<url><loc>{settings.site_url}/rankings/correction</loc><lastmod>{today}</lastmod></url>",
+        f"<url><loc>{settings.site_url}/tools/last-year</loc><lastmod>{today}</lastmod></url>",
+        f"<url><loc>{settings.site_url}/analysis</loc><lastmod>{today}</lastmod></url>",
     ]
 
     for symbol in DEFAULT_ASSETS:
         urls.append(
             f"<url><loc>{settings.site_url}/asset/{symbol}</loc><lastmod>{today}</lastmod></url>"
+        )
+
+    for post in load_analysis_posts():
+        urls.append(
+            f"<url><loc>{settings.site_url}/analysis/{post['slug']}</loc><lastmod>{post.get('date') or today}</lastmod></url>"
         )
 
     xml = [

@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block content %}
+
+<section class="asset-hero">
+  <div class="container">
+    <p class="eyebrow">계산기</p>
+    <h1>작년 오늘 샀다면?</h1>
+    <p>1년 전 이 자산에 투자했다면 현재 얼마가 되었는지 계산합니다.</p>
+  </div>
+</section>
+
+<section class="container">
+  <div class="panel">
+    <form class="asset-search tool-search" action="/tools/last-year" method="get">
+      <label for="symbol">자산과 금액 입력</label>
+      <div>
+        <input id="symbol" name="symbol" value="{{ symbol }}" placeholder="예: BTC-USD, QQQ, NVDA, 005930.KS" required>
+        <input name="amount" value="{{ amount | int }}" type="number" step="10000" min="10000">
+        <button type="submit">계산</button>
+      </div>
+      <p>기본값은 100만 원입니다.</p>
+    </form>
+  </div>
+
+  <div class="panel result-panel">
+    <p class="eyebrow">{{ asset.symbol }}</p>
+    <h2>{{ asset.name }}에 작년 오늘 투자했다면</h2>
+
+    <div class="result-number {{ pct_class(asset.last_year_result.profit) }}">
+      {{ money_krw(asset.last_year_result.current_value) }}
+    </div>
+
+    <div class="detail-metrics">
+      <div class="metric-card">
+        <span>투자금</span>
+        <strong>{{ money_krw(asset.last_year_result.amount) }}</strong>
+        <p>입력 기준</p>
+      </div>
+      <div class="metric-card">
+        <span>손익</span>
+        <strong class="{{ pct_class(asset.last_year_result.profit) }}">{{ money_krw(asset.last_year_result.profit) }}</strong>
+        <p>{{ fmt_pct(asset.last_year_result.return_pct) }}</p>
+      </div>
+      <div class="metric-card">
+        <span>작년 가격</span>
+        <strong>${{ fmt_price(asset.metrics.one_year_price) }}</strong>
+        <p>{{ asset.metrics.one_year_date }}</p>
+      </div>
+      <div class="metric-card">
+        <span>현재가</span>
+        <strong>${{ fmt_price(asset.metrics.current_price) }}</strong>
+        <p>{{ asset.metrics.current_date }}</p>
+      </div>
+    </div>
+
+    <p class="muted">{{ asset.last_year_result.summary }}</p>
+  </div>
+</section>
+
+{% endblock %}
