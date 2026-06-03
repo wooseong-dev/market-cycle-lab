@@ -93,8 +93,8 @@
     </div>
   </div>
 
-  {% set ma = asset.technical.moving_average %}
-  {% set fib = asset.technical.fibonacci %}
+  {% set ma = asset.technical["moving_average"] %}
+  {% set fib = asset.technical["fibonacci"] %}
 
   <section class="technical-grid">
     <div class="panel ta-panel">
@@ -103,21 +103,21 @@
           <p class="eyebrow">추세 분석</p>
           <h2>이동평균선</h2>
         </div>
-        <span class="ta-score">{{ ma.score | default(0) }}</span>
+        <span class="ta-score">{{ ma["score"] | default(0) }}</span>
       </div>
 
-      <p class="ta-state">{{ ma.state | default("데이터 부족") }}</p>
-      <p class="muted">{{ ma.summary | default("이동평균 데이터를 계산하지 못했습니다.") }}</p>
+      <p class="ta-state">{{ ma["state"] | default("데이터 부족") }}</p>
+      <p class="muted">{{ ma["summary"] | default("이동평균 데이터를 계산하지 못했습니다.") }}</p>
 
       <div class="ma-list">
-        {% for item in ma.items %}
+        {% for item in ma["items"] %}
         <div class="ma-row">
-          <span>{{ item.label }}</span>
-          <b>${{ fmt_price(item.value) }}</b>
-          <em class="{{ pct_class(item.diff_pct) }}">
-            {{ item.position }}
-            {% if item.diff_pct is not none %}
-            · {{ fmt_pct(item.diff_pct) }}
+          <span>{{ item["label"] }}</span>
+          <b>${{ fmt_price(item["value"]) }}</b>
+          <em class="{{ pct_class(item["diff_pct"]) }}">
+            {{ item["position"] }}
+            {% if item["diff_pct"] is not none %}
+            · {{ fmt_pct(item["diff_pct"]) }}
             {% endif %}
           </em>
         </div>
@@ -138,29 +138,29 @@
           <h2>기본 되돌림</h2>
         </div>
 
-        {% if fib.available %}
-        <span class="fib-chip">{{ fib.zone }}</span>
+        {% if fib["available"] %}
+        <span class="fib-chip">{{ fib["zone"] }}</span>
         {% else %}
         <span class="fib-chip">데이터 부족</span>
         {% endif %}
       </div>
 
-      <p class="ta-state">{{ fib.direction | default("데이터 부족") }}</p>
-      <p class="muted">{{ fib.summary | default("피보나치 데이터를 계산하지 못했습니다.") }}</p>
+      <p class="ta-state">{{ fib["direction"] | default("데이터 부족") }}</p>
+      <p class="muted">{{ fib["summary"] | default("피보나치 데이터를 계산하지 못했습니다.") }}</p>
 
-      {% if fib.available %}
+      {% if fib["available"] %}
       <div class="fib-range">
-        <span>저점 ${{ fmt_price(fib.low.price) }}</span>
-        <span>고점 ${{ fmt_price(fib.high.price) }}</span>
+        <span>저점 ${{ fmt_price(fib["low"]["price"]) }}</span>
+        <span>고점 ${{ fmt_price(fib["high"]["price"]) }}</span>
       </div>
 
       <div class="fib-levels">
-        {% for level in fib.levels %}
-        <div class="fib-row {% if level.label == fib.nearest.label %}nearest{% endif %}">
-          <span>{{ level.label }}</span>
-          <b>${{ fmt_price(level.price) }}</b>
-          <em class="{{ pct_class(level.distance_pct) }}">
-            {{ fmt_pct(level.distance_pct) }}
+        {% for level in fib["levels"] %}
+        <div class="fib-row {% if level["label"] == fib["nearest"]["label"] %}nearest{% endif %}">
+          <span>{{ level["label"] }}</span>
+          <b>${{ fmt_price(level["price"]) }}</b>
+          <em class="{{ pct_class(level["distance_pct"]) }}">
+            {{ fmt_pct(level["distance_pct"]) }}
           </em>
         </div>
         {% endfor %}
