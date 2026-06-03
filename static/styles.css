@@ -1161,3 +1161,80 @@ svg { width: 100%; height: 100%; display: block; }
     flex: 1;
   }
 }
+/* === 차트 확대/축소 컨트롤 === */
+
+.chart-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin: 12px 0 14px;
+}
+
+.range-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.range-button {
+  border: 1px solid rgba(125, 211, 252, .18);
+  border-radius: 999px;
+  background: rgba(15, 23, 42, .72);
+  color: var(--muted2);
+  padding: 8px 12px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.range-button.active {
+  color: #020617;
+  background: linear-gradient(135deg, var(--neon3), var(--neon));
+  box-shadow: 0 0 20px rgba(52, 211, 153, .18);
+}
+
+.interactive-chart {
+  height: 420px;
+  user-select: none;
+}
+
+.date-axis-label {
+  fill: #64748b;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.hover-capture.dragging {
+  cursor: grabbing;
+}
+
+.chart-help {
+  user-select: none;
+}
+
+@media (max-width: 760px) {
+  .chart-controls {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .range-toolbar {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .range-button {
+    width: 100%;
+  }
+}
+
+@media (max-width: 620px) {
+  .interactive-chart {
+    height: 340px;
+  }
+
+  .range-toolbar {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}

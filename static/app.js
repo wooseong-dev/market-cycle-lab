@@ -9,6 +9,15 @@ function clamp(value, min, max) {
   return Math.min(Math.max(value, min), max);
 }
 
+function parseJSON(value, fallback) {
+  try {
+    if (!value) return fallback;
+    return JSON.parse(value);
+  } catch (e) {
+    return fallback;
+  }
+}
+
 function movingAverage(values, window) {
   const out = [];
   let sum = 0;
@@ -37,16 +46,60 @@ function pathFromCoords(coords) {
     .join(" ");
 }
 
-function drawSparkline(el, points, big = false) {
+function getWindowedPoints(el, points) {
+  if (!points || points.length < 2) return points || [];
+
+  let start = Number(el.dataset.windowStart);
+  let end = Number(el.dataset.windowEnd);
+
+  if (!Number.isFinite(start) || !Number.isFinite(end) || start < 0 || end <= start) {
+    start = 0;
+    end = points.length - 1;
+    el.dataset.windowStart = String(start);
+    el.dataset.windowEnd = String(end);
+  }
+
+  start = clamp(Math.round(start), 0, points.length - 2);
+  end = clamp(Math.round(end), start + 1, points.length - 1);
+
+  el.dataset.windowStart = String(start);
+  el.dataset.windowEnd = String(end);
+
+  return points.slice(start, end + 1);
+}
+
+function setRange(el, days) {
+  const points = parseJSON(el.dataset.points, []);
+  if (!points.length) return;
+
+  if (days === "all") {
+    el.dataset.windowStart = "0";
+    el.dataset.windowEnd = String(points.length - 1);
+  } else {
+    const n = Number(days);
+    const length = Math.min(points.length, n);
+    el.dataset.windowStart = String(Math.max(0, points.length - length));
+    el.dataset.windowEnd = String(points.length - 1);
+  }
+
+  drawSparkline(el, points, true);
+}
+
+function drawSparkline(el, rawPoints, big = false) {
+  if (!rawPoints || rawPoints.length < 2) return;
+
+  const allPoints = rawPoints;
+  const points = big ? getWindowedPoints(el, allPoints) : allPoints;
+
   if (!points || points.length < 2) return;
 
   const width = Math.max(el.clientWidth || 640, 320);
-  const height = big ? 380 : 140;
+  const height = big ? 420 : 140;
 
-  const padLeft = big ? 48 : 16;
-  const padRight = big ? 76 : 16;
-  const padTop = big ? 28 : 14;
-  const padBottom = big ? 34 : 14;
+  const padLeft = big ? 54 : 16;
+  const padRight = big ? 82 : 16;
+  const padTop = big ? 30 : 14;
+  const padBottom = big ? 46 : 14;
 
   const maData = parseJSON(el.dataset.ma, []);
   const fibData = parseJSON(el.dataset.fib, []);
@@ -87,7 +140,7 @@ function drawSparkline(el, points, big = false) {
   const high = coords.reduce((a, b) => (b[2] > a[2] ? b : a), coords[0]);
   const low = coords.reduce((a, b) => (b[2] < a[2] ? b : a), coords[0]);
 
-  const gridCount = big ? 5 : 2;
+  const gridCount = big ? 6 : 2;
   const gridLines = [];
   const axisLabels = [];
 
@@ -105,14 +158,33 @@ function drawSparkline(el, points, big = false) {
     }
   }
 
+  if (big) {
+    const dateLabels = [
+      { i: 0, anchor: "start" },
+      { i: Math.floor(points.length / 2), anchor: "middle" },
+      { i: points.length - 1, anchor: "end" },
+    ];
+
+    dateLabels.forEach(x => {
+      const c = coords[x.i];
+      if (!c) return;
+      axisLabels.push(`
+        <text class="date-axis-label" text-anchor="${x.anchor}" x="${c[0]}" y="${height - 12}">${c[3]}</text>
+      `);
+    });
+  }
+
+  const startIndex = Number(el.dataset.windowStart || 0);
+
   const maOverlays = [];
   if (big && showMA) {
-    const closeValues = points.map(p => Number(p.close));
+    const closeValuesAll = allPoints.map(p => Number(p.close));
 
     [20, 60, 200].forEach(window => {
-      if (closeValues.length >= Math.min(window, 10)) {
-        const maValues = movingAverage(closeValues, Math.min(window, closeValues.length));
-        const maCoords = maValues.map((v, i) => v === null ? null : [xFor(i), yFor(v)]);
+      if (closeValuesAll.length >= Math.min(window, 10)) {
+        const allMaValues = movingAverage(closeValuesAll, Math.min(window, closeValuesAll.length));
+        const visibleMaValues = allMaValues.slice(startIndex, startIndex + points.length);
+        const maCoords = visibleMaValues.map((v, i) => v === null ? null : [xFor(i), yFor(v)]);
         const maPath = pathFromCoords(maCoords);
 
         if (maPath) {
@@ -126,6 +198,8 @@ function drawSparkline(el, points, big = false) {
       if (!Number.isFinite(price)) return;
 
       const y = yFor(price);
+      if (y < padTop || y > height - padBottom) return;
+
       maOverlays.push(`
         <line class="ma-level" x1="${padLeft}" y1="${y}" x2="${width - padRight}" y2="${y}"></line>
         <text class="overlay-label ma-label" x="${width - padRight - 6}" y="${y - 6}">${item.label} ${money(price)}</text>
@@ -140,6 +214,8 @@ function drawSparkline(el, points, big = false) {
       if (!Number.isFinite(price)) return;
 
       const y = yFor(price);
+      if (y < padTop || y > height - padBottom) return;
+
       fibOverlays.push(`
         <line class="fib-overlay" x1="${padLeft}" y1="${y}" x2="${width - padRight}" y2="${y}"></line>
         <text class="overlay-label fib-label" x="${padLeft + 8}" y="${y - 6}">피보 ${item.label} · ${money(price)}</text>
@@ -149,8 +225,8 @@ function drawSparkline(el, points, big = false) {
 
   const labels = big && showLabels
     ? `
-      <text class="chart-label" x="${padLeft}" y="${padTop - 8}">고점 ${money(high[2])}</text>
-      <text class="chart-label" x="${padLeft}" y="${height - 10}">저점 ${money(low[2])}</text>
+      <text class="chart-label" x="${padLeft}" y="${padTop - 8}">구간 고점 ${money(high[2])}</text>
+      <text class="chart-label" x="${padLeft}" y="${height - 26}">구간 저점 ${money(low[2])}</text>
       <text class="chart-label end" x="${width - padRight}" y="${last[1] - 10}">현재 ${money(last[2])}</text>
     `
     : "";
@@ -160,9 +236,9 @@ function drawSparkline(el, points, big = false) {
       <line class="crosshair-x" x1="${padLeft}" y1="${padTop}" x2="${padLeft}" y2="${height - padBottom}"></line>
       <line class="crosshair-y" x1="${padLeft}" y1="${padTop}" x2="${width - padRight}" y2="${padTop}"></line>
       <circle class="hover-dot" cx="${padLeft}" cy="${padTop}" r="5"></circle>
-      <rect class="tooltip-bg" x="${padLeft + 12}" y="${padTop + 12}" width="160" height="54" rx="10"></rect>
+      <rect class="tooltip-bg" x="${padLeft + 12}" y="${padTop + 12}" width="168" height="56" rx="10"></rect>
       <text class="tooltip-date" x="${padLeft + 24}" y="${padTop + 34}"></text>
-      <text class="tooltip-price" x="${padLeft + 24}" y="${padTop + 54}"></text>
+      <text class="tooltip-price" x="${padLeft + 24}" y="${padTop + 55}"></text>
       <rect class="hover-capture" x="${padLeft}" y="${padTop}" width="${chartW}" height="${chartH}"></rect>
     `
     : "";
@@ -197,11 +273,11 @@ function drawSparkline(el, points, big = false) {
   `;
 
   if (big) {
-    attachHover(el, points, coords, { padLeft, padTop, padRight, padBottom, width, height, chartW, chartH });
+    attachHoverAndZoom(el, allPoints, points, coords, { padLeft, padTop, padRight, padBottom, width, height, chartW, chartH });
   }
 }
 
-function attachHover(el, points, coords, dims) {
+function attachHoverAndZoom(el, allPoints, points, coords, dims) {
   const svg = el.querySelector("svg");
   const capture = el.querySelector(".hover-capture");
   if (!svg || !capture) return;
@@ -223,10 +299,44 @@ function attachHover(el, points, coords, dims) {
 
   setVisible(false);
 
+  let dragging = false;
+  let dragStartX = 0;
+  let dragStartStart = 0;
+  let dragStartEnd = 0;
+
   capture.addEventListener("mousemove", event => {
     const rect = svg.getBoundingClientRect();
     const ratioX = (event.clientX - rect.left) / rect.width;
     const svgX = ratioX * dims.width;
+
+    if (dragging) {
+      const currentX = event.clientX;
+      const dx = currentX - dragStartX;
+      const visibleCount = dragStartEnd - dragStartStart + 1;
+      const shift = Math.round((-dx / rect.width) * visibleCount * 1.6);
+
+      let nextStart = dragStartStart + shift;
+      let nextEnd = dragStartEnd + shift;
+
+      if (nextStart < 0) {
+        nextEnd -= nextStart;
+        nextStart = 0;
+      }
+
+      if (nextEnd > allPoints.length - 1) {
+        const overflow = nextEnd - (allPoints.length - 1);
+        nextStart -= overflow;
+        nextEnd = allPoints.length - 1;
+      }
+
+      nextStart = clamp(nextStart, 0, Math.max(0, allPoints.length - 2));
+      nextEnd = clamp(nextEnd, nextStart + 1, allPoints.length - 1);
+
+      el.dataset.windowStart = String(nextStart);
+      el.dataset.windowEnd = String(nextEnd);
+      drawSparkline(el, allPoints, true);
+      return;
+    }
 
     const clampedX = clamp(svgX, dims.padLeft, dims.width - dims.padRight);
     const index = Math.round(((clampedX - dims.padLeft) / dims.chartW) * (points.length - 1));
@@ -246,17 +356,17 @@ function attachHover(el, points, coords, dims) {
     dot.setAttribute("cy", y);
 
     let tooltipX = x + 14;
-    let tooltipY = y - 70;
+    let tooltipY = y - 72;
 
-    if (tooltipX > dims.width - dims.padRight - 170) tooltipX = x - 176;
+    if (tooltipX > dims.width - dims.padRight - 180) tooltipX = x - 186;
     if (tooltipY < dims.padTop + 8) tooltipY = y + 18;
 
     bg.setAttribute("x", tooltipX);
     bg.setAttribute("y", tooltipY);
     dateText.setAttribute("x", tooltipX + 12);
-    dateText.setAttribute("y", tooltipY + 22);
+    dateText.setAttribute("y", tooltipY + 23);
     priceText.setAttribute("x", tooltipX + 12);
-    priceText.setAttribute("y", tooltipY + 43);
+    priceText.setAttribute("y", tooltipY + 45);
 
     dateText.textContent = c[3];
     priceText.textContent = `가격 ${money(c[2])}`;
@@ -264,24 +374,75 @@ function attachHover(el, points, coords, dims) {
     setVisible(true);
   });
 
-  capture.addEventListener("mouseleave", () => setVisible(false));
-}
+  capture.addEventListener("mouseleave", () => {
+    if (!dragging) setVisible(false);
+  });
 
-function parseJSON(value, fallback) {
-  try {
-    if (!value) return fallback;
-    return JSON.parse(value);
-  } catch (e) {
-    return fallback;
-  }
-}
+  capture.addEventListener("mousedown", event => {
+    event.preventDefault();
+    dragging = true;
+    dragStartX = event.clientX;
+    dragStartStart = Number(el.dataset.windowStart || 0);
+    dragStartEnd = Number(el.dataset.windowEnd || allPoints.length - 1);
+    capture.classList.add("dragging");
+  });
 
-function redrawInteractiveChart(container) {
-  const chart = container.closest(".panel").querySelector(".interactive-chart");
-  if (!chart) return;
+  window.addEventListener("mouseup", () => {
+    dragging = false;
+    capture.classList.remove("dragging");
+  }, { once: true });
 
-  const points = parseJSON(chart.dataset.points, []);
-  drawSparkline(chart, points, true);
+  capture.addEventListener("wheel", event => {
+    event.preventDefault();
+
+    const total = allPoints.length;
+    let start = Number(el.dataset.windowStart || 0);
+    let end = Number(el.dataset.windowEnd || total - 1);
+
+    const visible = end - start + 1;
+    const minVisible = Math.min(30, total);
+    const zoomIn = event.deltaY < 0;
+    const factor = zoomIn ? 0.82 : 1.22;
+    let nextVisible = Math.round(visible * factor);
+
+    nextVisible = clamp(nextVisible, minVisible, total);
+
+    const rect = svg.getBoundingClientRect();
+    const ratio = clamp((event.clientX - rect.left) / rect.width, 0, 1);
+    const center = start + ratio * visible;
+
+    let nextStart = Math.round(center - nextVisible * ratio);
+    let nextEnd = nextStart + nextVisible - 1;
+
+    if (nextStart < 0) {
+      nextEnd -= nextStart;
+      nextStart = 0;
+    }
+
+    if (nextEnd > total - 1) {
+      const overflow = nextEnd - (total - 1);
+      nextStart -= overflow;
+      nextEnd = total - 1;
+    }
+
+    nextStart = clamp(nextStart, 0, Math.max(0, total - 2));
+    nextEnd = clamp(nextEnd, nextStart + 1, total - 1);
+
+    el.dataset.windowStart = String(nextStart);
+    el.dataset.windowEnd = String(nextEnd);
+    drawSparkline(el, allPoints, true);
+  }, { passive: false });
+
+  capture.addEventListener("dblclick", event => {
+    event.preventDefault();
+    el.dataset.windowStart = "0";
+    el.dataset.windowEnd = String(allPoints.length - 1);
+
+    const panel = el.closest(".panel");
+    panel?.querySelectorAll(".range-button").forEach(btn => btn.classList.remove("active"));
+
+    drawSparkline(el, allPoints, true);
+  });
 }
 
 document.querySelectorAll(".mini-chart").forEach(el => {
@@ -292,7 +453,12 @@ document.querySelectorAll(".mini-chart").forEach(el => {
 
 document.querySelectorAll(".big-chart").forEach(el => {
   try {
-    drawSparkline(el, parseJSON(el.dataset.points, []), true);
+    const points = parseJSON(el.dataset.points, []);
+    if (el.classList.contains("interactive-chart")) {
+      setRange(el, "1825");
+    } else {
+      drawSparkline(el, points, true);
+    }
   } catch (e) {}
 });
 
@@ -300,7 +466,6 @@ document.querySelectorAll(".chart-toggle").forEach(button => {
   button.addEventListener("click", () => {
     button.classList.toggle("active");
 
-    const toolbar = button.closest(".chart-toolbar");
     const panel = button.closest(".panel");
     const chart = panel.querySelector(".interactive-chart");
     if (!chart) return;
@@ -313,6 +478,19 @@ document.querySelectorAll(".chart-toggle").forEach(button => {
     if (overlay === "labels") chart.dataset.showLabels = String(active);
 
     drawSparkline(chart, parseJSON(chart.dataset.points, []), true);
+  });
+});
+
+document.querySelectorAll(".range-button").forEach(button => {
+  button.addEventListener("click", () => {
+    const panel = button.closest(".panel");
+    const chart = panel.querySelector(".interactive-chart");
+    if (!chart) return;
+
+    panel.querySelectorAll(".range-button").forEach(btn => btn.classList.remove("active"));
+    button.classList.add("active");
+
+    setRange(chart, button.dataset.range);
   });
 });
 
