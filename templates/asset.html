@@ -93,6 +93,9 @@
     </div>
   </div>
 
+  {% set ma = asset.technical.moving_average %}
+  {% set fib = asset.technical.fibonacci %}
+
   <section class="technical-grid">
     <div class="panel ta-panel">
       <div class="section-head compact">
@@ -100,23 +103,29 @@
           <p class="eyebrow">추세 분석</p>
           <h2>이동평균선</h2>
         </div>
-        <span class="ta-score">{{ asset.technical.moving_average.score }}</span>
+        <span class="ta-score">{{ ma.score | default(0) }}</span>
       </div>
 
-      <p class="ta-state">{{ asset.technical.moving_average.state }}</p>
-      <p class="muted">{{ asset.technical.moving_average.summary }}</p>
+      <p class="ta-state">{{ ma.state | default("데이터 부족") }}</p>
+      <p class="muted">{{ ma.summary | default("이동평균 데이터를 계산하지 못했습니다.") }}</p>
 
       <div class="ma-list">
-        {% for ma in asset.technical.moving_average.items %}
+        {% for item in ma.items %}
         <div class="ma-row">
-          <span>{{ ma.label }}</span>
-          <b>${{ fmt_price(ma.value) }}</b>
-          <em class="{{ pct_class(ma.diff_pct) }}">
-            {{ ma.position }}
-            {% if ma.diff_pct is not none %}
-            · {{ fmt_pct(ma.diff_pct) }}
+          <span>{{ item.label }}</span>
+          <b>${{ fmt_price(item.value) }}</b>
+          <em class="{{ pct_class(item.diff_pct) }}">
+            {{ item.position }}
+            {% if item.diff_pct is not none %}
+            · {{ fmt_pct(item.diff_pct) }}
             {% endif %}
           </em>
+        </div>
+        {% else %}
+        <div class="ma-row">
+          <span>데이터 부족</span>
+          <b>-</b>
+          <em>계산 불가</em>
         </div>
         {% endfor %}
       </div>
@@ -128,23 +137,26 @@
           <p class="eyebrow">피보나치 분석</p>
           <h2>기본 되돌림</h2>
         </div>
-        {% if asset.technical.fibonacci.available %}
-        <span class="fib-chip">{{ asset.technical.fibonacci.zone }}</span>
+
+        {% if fib.available %}
+        <span class="fib-chip">{{ fib.zone }}</span>
+        {% else %}
+        <span class="fib-chip">데이터 부족</span>
         {% endif %}
       </div>
 
-      {% if asset.technical.fibonacci.available %}
-      <p class="ta-state">{{ asset.technical.fibonacci.direction }}</p>
-      <p class="muted">{{ asset.technical.fibonacci.summary }}</p>
+      <p class="ta-state">{{ fib.direction | default("데이터 부족") }}</p>
+      <p class="muted">{{ fib.summary | default("피보나치 데이터를 계산하지 못했습니다.") }}</p>
 
+      {% if fib.available %}
       <div class="fib-range">
-        <span>저점 ${{ fmt_price(asset.technical.fibonacci.low.price) }}</span>
-        <span>고점 ${{ fmt_price(asset.technical.fibonacci.high.price) }}</span>
+        <span>저점 ${{ fmt_price(fib.low.price) }}</span>
+        <span>고점 ${{ fmt_price(fib.high.price) }}</span>
       </div>
 
       <div class="fib-levels">
-        {% for level in asset.technical.fibonacci.levels %}
-        <div class="fib-row {% if level.label == asset.technical.fibonacci.nearest.label %}nearest{% endif %}">
+        {% for level in fib.levels %}
+        <div class="fib-row {% if level.label == fib.nearest.label %}nearest{% endif %}">
           <span>{{ level.label }}</span>
           <b>${{ fmt_price(level.price) }}</b>
           <em class="{{ pct_class(level.distance_pct) }}">
@@ -153,8 +165,6 @@
         </div>
         {% endfor %}
       </div>
-      {% else %}
-      <p class="muted">{{ asset.technical.fibonacci.summary }}</p>
       {% endif %}
     </div>
   </section>

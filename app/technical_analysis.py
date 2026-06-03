@@ -1,10 +1,6 @@
 from __future__ import annotations
 
-import math
-from dataclasses import dataclass
 from typing import Any
-
-import numpy as np
 import pandas as pd
 
 
@@ -23,39 +19,49 @@ def _pct_diff(price, base):
     return (price / base - 1) * 100
 
 
-def _fmt_price(value):
-    if value is None:
-        return "-"
-    if abs(value) >= 1000:
-        return f"{value:,.0f}"
-    if abs(value) >= 10:
-        return f"{value:,.2f}"
-    return f"{value:,.4f}"
+def empty_moving_average_result(message: str = "이동평균을 계산할 가격 데이터가 부족합니다.") -> dict[str, Any]:
+    return {
+        "available": False,
+        "current": None,
+        "items": [
+            {"window": 20, "label": "20일선", "value": None, "diff_pct": None, "position": "데이터 부족"},
+            {"window": 60, "label": "60일선", "value": None, "diff_pct": None, "position": "데이터 부족"},
+            {"window": 200, "label": "200일선", "value": None, "diff_pct": None, "position": "데이터 부족"},
+        ],
+        "state": "데이터 부족",
+        "summary": message,
+        "score": 0,
+    }
+
+
+def empty_fibonacci_result(message: str = "피보나치 기준점을 계산할 가격 데이터가 부족합니다.") -> dict[str, Any]:
+    return {
+        "available": False,
+        "direction": "데이터 부족",
+        "low": {"date": "-", "price": None},
+        "high": {"date": "-", "price": None},
+        "levels": [],
+        "nearest": {"label": "-", "price": None, "distance_pct": None},
+        "zone": "데이터 부족",
+        "summary": message,
+    }
 
 
 def moving_average_analysis(df: pd.DataFrame) -> dict[str, Any]:
     """
     이동평균 분석.
-    기존 사이클 계산과 분리해서 독립적으로 동작하게 만들었습니다.
+    모든 분기에서 score/items/state/summary가 항상 존재하게 만들었습니다.
     """
-    if df.empty or "Close" not in df:
-        return {
-            "available": False,
-            "summary": "이동평균을 계산할 가격 데이터가 부족합니다.",
-            "items": [],
-            "state": "데이터 부족",
-        }
+    if df is None or df.empty or "Close" not in df:
+        return empty_moving_average_result()
 
     close = df["Close"].dropna()
     if close.empty:
-        return {
-            "available": False,
-            "summary": "이동평균을 계산할 가격 데이터가 부족합니다.",
-            "items": [],
-            "state": "데이터 부족",
-        }
+        return empty_moving_average_result()
 
     current = _safe_float(close.iloc[-1])
+    if current is None:
+        return empty_moving_average_result()
 
     windows = [20, 60, 200]
     items = []
@@ -91,7 +97,11 @@ def moving_average_analysis(df: pd.DataFrame) -> dict[str, Any]:
 
     above_count = sum(1 for x in items if x["diff_pct"] is not None and x["diff_pct"] >= 0)
 
-    if ma20 and ma60 and ma200 and current:
+    state = "부분 데이터"
+    summary = "일부 이동평균 데이터가 부족합니다. 짧은 기간 기준으로만 참고해야 합니다."
+    score = 50
+
+    if ma20 is not None and ma60 is not None and ma200 is not None:
         if current > ma20 > ma60 > ma200:
             state = "강한 상승 배열"
             summary = "현재가가 20일선, 60일선, 200일선 위에 있고 단기선이 장기선보다 위에 있습니다. 추세가 비교적 강한 구조입니다."
@@ -112,10 +122,6 @@ def moving_average_analysis(df: pd.DataFrame) -> dict[str, Any]:
             state = "하락 또는 회복 대기"
             summary = "현재가가 장기 기준선 아래에 있습니다. 반등이 나오더라도 추세 회복 여부를 확인해야 합니다."
             score = 36
-    else:
-        state = "부분 데이터"
-        summary = "일부 이동평균 데이터가 부족합니다. 짧은 기간 기준으로만 참고해야 합니다."
-        score = 50
 
     return {
         "available": True,
@@ -127,11 +133,7 @@ def moving_average_analysis(df: pd.DataFrame) -> dict[str, Any]:
     }
 
 
-def _find_pivots(close: pd.Series, window: int = 5) -> list[dict[str, Any]]:
-    """
-    간단한 스윙 고점/저점 탐지.
-    하모닉/엘리엇처럼 정교한 카운팅용은 아니고 피보나치 기준점 후보용입니다.
-    """
+def _find_pivots(close: pd.Series, window: int = 6) -> list[dict[str, Any]]:
     pivots = []
     values = close.values
     index = close.index
@@ -166,72 +168,71 @@ def _find_pivots(close: pd.Series, window: int = 5) -> list[dict[str, Any]]:
     return pivots
 
 
+def _fallback_high_low(recent: pd.Series):
+    low_date = recent.idxmin()
+    high_date = recent.idxmax()
+
+    low = {
+        "type": "low",
+        "date": low_date,
+        "price": float(recent.loc[low_date]),
+        "pos": int(recent.index.get_loc(low_date)),
+    }
+
+    high = {
+        "type": "high",
+        "date": high_date,
+        "price": float(recent.loc[high_date]),
+        "pos": int(recent.index.get_loc(high_date)),
+    }
+
+    return low, high
+
+
 def fibonacci_analysis(df: pd.DataFrame) -> dict[str, Any]:
     """
     피보나치 기본 분석.
-    최근 주요 스윙 하나를 잡아 되돌림 레벨을 계산합니다.
+    모든 분기에서 template이 참조하는 key가 항상 존재하게 만들었습니다.
     """
-    if df.empty or "Close" not in df:
-        return {
-            "available": False,
-            "summary": "피보나치 기준점을 계산할 가격 데이터가 부족합니다.",
-            "levels": [],
-        }
+    if df is None or df.empty or "Close" not in df:
+        return empty_fibonacci_result()
 
     close = df["Close"].dropna()
+
     if len(close) < 80:
-        return {
-            "available": False,
-            "summary": "피보나치 분석에는 최소 80개 이상의 가격 데이터가 필요합니다.",
-            "levels": [],
-        }
+        return empty_fibonacci_result("피보나치 분석에는 최소 80개 이상의 가격 데이터가 필요합니다.")
 
     current = _safe_float(close.iloc[-1])
+    if current is None:
+        return empty_fibonacci_result()
 
-    # 너무 오래된 스윙보다 최근 구조를 우선하기 위해 최근 360개 봉 위주로 탐색
     recent = close.tail(min(len(close), 360))
     pivots = _find_pivots(recent, window=6)
 
     if len(pivots) < 2:
-        # 피벗이 부족하면 단순 최근 고점/저점으로 대체
-        low_date = recent.idxmin()
-        high_date = recent.idxmax()
-        low = {"type": "low", "date": low_date, "price": float(recent.loc[low_date]), "pos": recent.index.get_loc(low_date)}
-        high = {"type": "high", "date": high_date, "price": float(recent.loc[high_date]), "pos": recent.index.get_loc(high_date)}
+        low, high = _fallback_high_low(recent)
     else:
-        # 최근 가격에 가까운 주요 고점/저점 후보를 사용
         last_high = next((p for p in reversed(pivots) if p["type"] == "high"), None)
         last_low = next((p for p in reversed(pivots) if p["type"] == "low"), None)
 
         if not last_high or not last_low:
-            low_date = recent.idxmin()
-            high_date = recent.idxmax()
-            low = {"type": "low", "date": low_date, "price": float(recent.loc[low_date]), "pos": recent.index.get_loc(low_date)}
-            high = {"type": "high", "date": high_date, "price": float(recent.loc[high_date]), "pos": recent.index.get_loc(high_date)}
+            low, high = _fallback_high_low(recent)
         else:
-            low = last_low
-            high = last_high
+            low, high = last_low, last_high
 
     low_price = low["price"]
     high_price = high["price"]
 
     if high_price == low_price:
-        return {
-            "available": False,
-            "summary": "고점과 저점 차이가 너무 작아 피보나치 레벨을 계산하기 어렵습니다.",
-            "levels": [],
-        }
+        return empty_fibonacci_result("고점과 저점 차이가 너무 작아 피보나치 레벨을 계산하기 어렵습니다.")
 
-    # 최근 고점이 최근 저점보다 뒤에 있으면 상승 스윙 뒤 조정으로 본다.
     direction = "상승 스윙" if high["pos"] > low["pos"] else "하락 스윙"
 
     ratios = [0.236, 0.382, 0.5, 0.618, 0.786, 1.0]
-
-    levels = []
     diff = high_price - low_price
+    levels = []
 
     if direction == "상승 스윙":
-        # 상승 이후 되돌림: 고점에서 아래로 내려오는 가격대
         for ratio in ratios:
             level = high_price - diff * ratio
             levels.append(
@@ -244,7 +245,6 @@ def fibonacci_analysis(df: pd.DataFrame) -> dict[str, Any]:
             )
         base_text = "최근 상승 스윙을 기준으로 되돌림 가격대를 계산했습니다."
     else:
-        # 하락 이후 반등: 저점에서 위로 올라가는 되돌림 가격대
         for ratio in ratios:
             level = low_price + diff * ratio
             levels.append(
