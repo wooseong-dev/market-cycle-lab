@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% block content %}
+
+<section class="asset-hero {{ asset.theme }}">
+  <div class="container asset-hero-grid">
+    <div>
+      <p class="eyebrow">{{ asset_type_ko(asset.type) }} · {{ asset.symbol }}</p>
+      <h1>{{ asset.name }} 사이클 분석</h1>
+      <p>
+        이 페이지는 {{ asset.name }}이 현재 고점 근처인지, 깊은 조정 중인지,
+        1년 전과 비교해 어느 정도 위치인지 보여줍니다.
+      </p>
+
+      {% if asset.fallback %}
+      <p class="warning">실시간 데이터 호출에 실패해 샘플형 데이터가 표시되고 있습니다.</p>
+      {% endif %}
+    </div>
+
+    <div class="score-card">
+      <span>위험 점수</span>
+      <strong>{{ asset.metrics.risk_score }}</strong>
+      <p>{{ cycle_label_ko(asset.metrics.cycle_label) }}</p>
+      <small>{{ risk_text(asset.metrics.risk_score) }}</small>
+    </div>
+  </div>
+</section>
+
+<section class="container">
+  <div class="panel">
+    <div class="section-head">
+      <div>
+        <p class="eyebrow">가격 흐름</p>
+        <h2>{{ asset.symbol }} 5년 차트</h2>
+      </div>
+      <p class="muted">{{ asset.metrics.current_date }} 기준</p>
+    </div>
+
+    <div class="big-chart" data-points='{{ asset.chart | tojson }}'></div>
+
+    <div class="chart-help">
+      차트는 지난 5년의 종가 흐름입니다. 오른쪽 끝이 현재 가격입니다.
+      위아래 숫자보다 흐름의 위치를 보는 용도입니다.
+    </div>
+  </div>
+
+  <div class="detail-metrics">
+    <div class="metric-card">
+      <span>현재가</span>
+      <strong>${{ fmt_price(asset.metrics.current_price) }}</strong>
+      <p>가장 최근 종가 기준 가격입니다.</p>
+    </div>
+
+    <div class="metric-card">
+      <span>작년 이맘때 가격</span>
+      <strong>${{ fmt_price(asset.metrics.one_year_price) }}</strong>
+      <p>{{ asset.metrics.one_year_date }} 기준 · {{ fmt_pct(asset.metrics.one_year_change) }}</p>
+    </div>
+
+    <div class="metric-card">
+      <span>고점 대비 하락률</span>
+      <strong class="down">{{ fmt_pct(asset.metrics.ath_drawdown) }}</strong>
+      <p>최고가 ${{ fmt_price(asset.metrics.ath_price) }} · {{ asset.metrics.ath_date }}</p>
+    </div>
+
+    <div class="metric-card">
+      <span>현재 조정 기간</span>
+      <strong>{{ fmt_days(asset.metrics.current_dd_days) }}</strong>
+      <p>전고점을 회복하지 못하고 있는 기간입니다.</p>
+    </div>
+
+    <div class="metric-card">
+      <span>평균 조정 기간</span>
+      <strong>{{ fmt_days(asset.metrics.avg_dd_duration) }}</strong>
+      <p>전고점 아래에 머문 평균 기간입니다.</p>
+    </div>
+
+    <div class="metric-card">
+      <span>최장 조정 기간</span>
+      <strong>{{ fmt_days(asset.metrics.max_dd_duration) }}</strong>
+      <p>최근 5년 안에서 가장 길었던 조정입니다.</p>
+    </div>
+
+    <div class="metric-card">
+      <span>20% 이상 하락 횟수</span>
+      <strong>{{ asset.metrics.bear_period_count }}회</strong>
+      <p>고점 대비 20% 이상 빠진 구간의 횟수입니다.</p>
+    </div>
+
+    <div class="metric-card">
+      <span>90일 변동성</span>
+      <strong>{{ fmt_pct(asset.metrics.volatility_90d) }}</strong>
+      <p>최근 90일 동안 얼마나 심하게 흔들렸는지 보는 지표입니다.</p>
+    </div>
+  </div>
+
+  <div class="panel interpretation">
+    <p class="eyebrow">초심자 해석</p>
+    <h2>{{ cycle_label_ko(asset.metrics.cycle_label) }}</h2>
+    <p>{{ asset.metrics.cycle_desc_ko }}</p>
+    <p>{{ drawdown_text(asset.metrics.ath_drawdown) }}</p>
+    <p class="muted">
+      이 자료는 과거 가격 데이터 기반의 참고용입니다. 매수·매도 추천이 아닙니다.
+      실제 판단에는 금리, 달러, 유동성, 뉴스, 정책, 실적을 함께 봐야 합니다.
+    </p>
+  </div>
+</section>
+
+{% endblock %}

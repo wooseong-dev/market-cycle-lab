@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+{% block content %}
+
+<section class="hero">
+  <div class="container hero-grid">
+    <div>
+      <p class="eyebrow">코인 · 증시 · 매크로 사이클</p>
+      <h1>지금 시장은 고점 근처일까, 조정 중일까?</h1>
+      <p class="hero-copy">
+        어려운 지표를 몰라도 됩니다. 작년 이맘때 가격, 고점 대비 하락률, 현재 조정 기간을 한눈에 보여줍니다.
+      </p>
+
+      <form class="asset-search" action="/analyze" method="get">
+        <label for="symbol">원하는 자산 분석하기</label>
+        <div>
+          <input id="symbol" name="symbol" placeholder="예: BTC-USD, QQQ, NVDA, 005930.KS" required>
+          <button type="submit">분석</button>
+        </div>
+        <p>코인은 BTC-USD처럼, 한국 주식은 005930.KS처럼 입력하면 됩니다.</p>
+      </form>
+
+      <div class="hero-actions">
+        <a href="#dashboard" class="button primary">대표 자산 보기</a>
+        <a href="/asset/BTC-USD" class="button ghost">비트코인 자세히 보기</a>
+      </div>
+    </div>
+
+    <div class="glass-card">
+      <span>오늘의 사이클 힌트</span>
+      <strong>{{ cycle_label_ko(assets[0].metrics.cycle_label) }}</strong>
+      <p>{{ assets[0].metrics.cycle_desc_ko }}</p>
+      <small>기준 자산: 비트코인</small>
+    </div>
+  </div>
+</section>
+
+<section class="container beginner-box">
+  <div>
+    <h2>이 사이트는 무엇을 보여주나요?</h2>
+    <p>
+      가격이 올랐는지 내렸는지만 보는 사이트가 아닙니다.
+      지금 가격이 과거 고점과 비교해 얼마나 내려와 있는지, 조정이 보통보다 긴지 짧은지를 보여줍니다.
+    </p>
+  </div>
+
+  <div class="explain-grid">
+    <div>
+      <b>작년 이맘때 가격</b>
+      <span>1년 전과 비교해 지금이 비싼지 싼지 봅니다.</span>
+    </div>
+    <div>
+      <b>고점 대비 하락률</b>
+      <span>최고가에서 얼마나 내려왔는지 봅니다.</span>
+    </div>
+    <div>
+      <b>현재 조정 기간</b>
+      <span>전고점을 회복하지 못한 기간입니다.</span>
+    </div>
+    <div>
+      <b>위험 점수</b>
+      <span>하락률과 변동성을 섞어 만든 참고 점수입니다.</span>
+    </div>
+  </div>
+</section>
+
+<section id="dashboard" class="container">
+  <div class="section-head">
+    <div>
+      <p class="eyebrow">대표 자산</p>
+      <h2>시장 사이클 비교</h2>
+    </div>
+    <p class="muted">일봉 5년 데이터 기준</p>
+  </div>
+
+  <div class="asset-grid">
+    {% for asset in assets %}
+    <article class="asset-card {{ asset.theme }}">
+      <div class="asset-top">
+        <div>
+          <span class="asset-type">{{ asset_type_ko(asset.type) }}</span>
+          <h3><a href="/asset/{{ asset.ticker }}">{{ asset.name }}</a></h3>
+          <p>{{ asset.description }}</p>
+        </div>
+        <div class="symbol">{{ asset.symbol }}</div>
+      </div>
+
+      <div class="mini-chart" data-points='{{ asset.chart | tojson }}'></div>
+
+      <div class="metric-grid">
+        <div>
+          <span>현재가</span>
+          <strong>${{ fmt_price(asset.metrics.current_price) }}</strong>
+        </div>
+        <div>
+          <span>작년 가격</span>
+          <strong>${{ fmt_price(asset.metrics.one_year_price) }}</strong>
+        </div>
+        <div>
+          <span>1년 변화</span>
+          <strong class="{{ pct_class(asset.metrics.one_year_change) }}">
+            {{ fmt_pct(asset.metrics.one_year_change) }}
+          </strong>
+        </div>
+        <div>
+          <span>고점 대비</span>
+          <strong class="down">{{ fmt_pct(asset.metrics.ath_drawdown) }}</strong>
+        </div>
+      </div>
+
+      <div class="plain-note">
+        {{ drawdown_text(asset.metrics.ath_drawdown) }}
+      </div>
+
+      <div class="cycle-row">
+        <span>{{ cycle_label_ko(asset.metrics.cycle_label) }}</span>
+        <div class="risk-bar">
+          <i style="width: {{ asset.metrics.risk_score }}%"></i>
+        </div>
+        <b>{{ asset.metrics.risk_score }}</b>
+      </div>
+    </article>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="container split-section">
+  <div class="panel">
+    <p class="eyebrow">코인</p>
+    <h2>코인 조정 기간 보기</h2>
+
+    <div class="table-like">
+      {% for asset in crypto %}
+      <a href="/asset/{{ asset.ticker }}" class="table-row">
+        <span>{{ asset.symbol }}</span>
+        <b>{{ fmt_pct(asset.metrics.ath_drawdown) }}</b>
+        <em>현재 조정 {{ fmt_days(asset.metrics.current_dd_days) }}</em>
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="panel">
+    <p class="eyebrow">증시와 매크로</p>
+    <h2>주식·금·유가·달러 비교</h2>
+
+    <div class="table-like">
+      {% for asset in equity + macro %}
+      <a href="/asset/{{ asset.ticker }}" class="table-row">
+        <span>{{ asset.symbol }}</span>
+        <b class="{{ pct_class(asset.metrics.one_year_change) }}">{{ fmt_pct(asset.metrics.one_year_change) }}</b>
+        <em>최장 조정 {{ fmt_days(asset.metrics.max_dd_duration) }}</em>
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+{% endblock %}
