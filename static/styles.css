@@ -1260,3 +1260,21 @@ svg { width: 100%; height: 100%; display: block; }
 .interactive-chart {
   touch-action: none;
 }
+/* === 차트 드래그 이동 핫픽스 === */
+
+body.chart-dragging {
+  cursor: grabbing !important;
+  user-select: none;
+}
+
+body.chart-dragging * {
+  cursor: grabbing !important;
+}
+
+.hover-capture {
+  cursor: grab;
+}
+
+.hover-capture.dragging {
+  cursor: grabbing;
+}

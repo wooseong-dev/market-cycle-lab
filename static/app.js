@@ -323,59 +323,10 @@ function attachHoverAndPan(el, allPoints, points, coords, dims) {
 
   setVisible(false);
 
-  let dragging = false;
-  let dragStartX = 0;
-  let dragStartY = 0;
-  let dragStartStart = 0;
-  let dragStartEnd = 0;
-  let dragStartYPan = 0;
-  let hasDragged = false;
-
-  capture.addEventListener("mousemove", event => {
+  function showHover(event) {
     const rect = svg.getBoundingClientRect();
     const ratioX = (event.clientX - rect.left) / rect.width;
     const svgX = ratioX * dims.width;
-
-    if (dragging) {
-      const dx = event.clientX - dragStartX;
-      const dy = event.clientY - dragStartY;
-
-      if (Math.abs(dx) > 2 || Math.abs(dy) > 2) hasDragged = true;
-
-      const visibleCount = dragStartEnd - dragStartStart + 1;
-
-      // 좌우 드래그: 시간 구간 이동
-      const shiftX = Math.round((-dx / rect.width) * visibleCount * 1.7);
-
-      let nextStart = dragStartStart + shiftX;
-      let nextEnd = dragStartEnd + shiftX;
-
-      if (nextStart < 0) {
-        nextEnd -= nextStart;
-        nextStart = 0;
-      }
-
-      if (nextEnd > allPoints.length - 1) {
-        const overflow = nextEnd - (allPoints.length - 1);
-        nextStart -= overflow;
-        nextEnd = allPoints.length - 1;
-      }
-
-      nextStart = clamp(nextStart, 0, Math.max(0, allPoints.length - 2));
-      nextEnd = clamp(nextEnd, nextStart + 1, allPoints.length - 1);
-
-      // 상하 드래그: 가격축 이동
-      // 아래로 드래그하면 더 높은 가격대를 보이게, 위로 드래그하면 더 낮은 가격대를 보이게 함.
-      const priceShift = (dy / dims.chartH) * dims.range;
-      const nextYPan = dragStartYPan + priceShift;
-
-      el.dataset.windowStart = String(nextStart);
-      el.dataset.windowEnd = String(nextEnd);
-      el.dataset.yPan = String(nextYPan);
-
-      drawSparkline(el, allPoints, true);
-      return;
-    }
 
     const clampedX = clamp(svgX, dims.padLeft, dims.width - dims.padRight);
     const index = Math.round(((clampedX - dims.padLeft) / dims.chartW) * (points.length - 1));
@@ -411,28 +362,83 @@ function attachHoverAndPan(el, allPoints, points, coords, dims) {
     priceText.textContent = `가격 ${money(c[2])}`;
 
     setVisible(true);
-  });
+  }
 
-  capture.addEventListener("mouseleave", () => {
-    if (!dragging) setVisible(false);
-  });
+  capture.addEventListener("mousemove", showHover);
+  capture.addEventListener("mouseleave", () => setVisible(false));
 
   capture.addEventListener("mousedown", event => {
     event.preventDefault();
-    dragging = true;
-    hasDragged = false;
-    dragStartX = event.clientX;
-    dragStartY = event.clientY;
-    dragStartStart = Number(el.dataset.windowStart || 0);
-    dragStartEnd = Number(el.dataset.windowEnd || allPoints.length - 1);
-    dragStartYPan = Number(el.dataset.yPan || 0);
-    capture.classList.add("dragging");
-  });
 
-  window.addEventListener("mouseup", () => {
-    dragging = false;
-    capture.classList.remove("dragging");
-  }, { once: true });
+    const drag = {
+      startX: event.clientX,
+      startY: event.clientY,
+      startStart: Number(el.dataset.windowStart || 0),
+      startEnd: Number(el.dataset.windowEnd || allPoints.length - 1),
+      startYPan: Number(el.dataset.yPan || 0),
+      visibleCount: Number(el.dataset.windowEnd || allPoints.length - 1) - Number(el.dataset.windowStart || 0) + 1,
+      lastFrame: 0,
+    };
+
+    capture.classList.add("dragging");
+    document.body.classList.add("chart-dragging");
+
+    function onMove(moveEvent) {
+      moveEvent.preventDefault();
+
+      const rect = svg.getBoundingClientRect();
+      const dx = moveEvent.clientX - drag.startX;
+      const dy = moveEvent.clientY - drag.startY;
+
+      // 좌우 드래그 민감도 강화
+      const shiftX = Math.round((-dx / Math.max(rect.width, 1)) * drag.visibleCount * 3.2);
+
+      let nextStart = drag.startStart + shiftX;
+      let nextEnd = drag.startEnd + shiftX;
+
+      if (nextStart < 0) {
+        nextEnd -= nextStart;
+        nextStart = 0;
+      }
+
+      if (nextEnd > allPoints.length - 1) {
+        const overflow = nextEnd - (allPoints.length - 1);
+        nextStart -= overflow;
+        nextEnd = allPoints.length - 1;
+      }
+
+      nextStart = clamp(nextStart, 0, Math.max(0, allPoints.length - 2));
+      nextEnd = clamp(nextEnd, nextStart + 1, allPoints.length - 1);
+
+      // 상하 드래그 민감도 강화
+      const priceShift = (dy / Math.max(dims.chartH, 1)) * dims.range * 1.35;
+      const nextYPan = drag.startYPan + priceShift;
+
+      el.dataset.windowStart = String(nextStart);
+      el.dataset.windowEnd = String(nextEnd);
+      el.dataset.yPan = String(nextYPan);
+
+      const now = performance.now();
+      if (now - drag.lastFrame > 24) {
+        drag.lastFrame = now;
+        drawSparkline(el, allPoints, true);
+      }
+    }
+
+    function onUp() {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+      document.body.classList.remove("chart-dragging");
+
+      const freshCapture = el.querySelector(".hover-capture");
+      freshCapture?.classList.remove("dragging");
+
+      drawSparkline(el, allPoints, true);
+    }
+
+    window.addEventListener("mousemove", onMove, { passive: false });
+    window.addEventListener("mouseup", onUp);
+  });
 
   capture.addEventListener("wheel", event => {
     event.preventDefault();
