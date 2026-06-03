@@ -52,6 +52,7 @@
         <button type="button" class="range-button" data-range="1095">3년</button>
         <button type="button" class="range-button active" data-range="1825">5년</button>
         <button type="button" class="range-button" data-range="all">전체</button>
+        <button type="button" class="range-button reset-chart-button" data-action="reset-view">보기 초기화</button>
       </div>
     </div>
 
@@ -63,14 +64,15 @@
       data-current='{{ asset.metrics.current_price }}'
       data-window-start=""
       data-window-end=""
+      data-y-pan="0"
       data-show-ma="true"
       data-show-fib="true"
       data-show-labels="true"
     ></div>
 
     <div class="chart-help">
-      마우스 휠로 확대/축소, 드래그로 좌우 이동, 더블클릭으로 전체 보기 초기화가 가능합니다.
-      이동평균선과 피보나치 레벨은 위 버튼으로 켜고 끌 수 있습니다.
+      마우스 휠로 시간축 확대/축소, 드래그로 좌우·상하 이동, 더블클릭으로 전체 보기 초기화가 가능합니다.
+      확대한 뒤 차트를 잡고 움직이면 원하는 구간과 가격대를 볼 수 있습니다.
     </div>
   </div>
 

@@ -1238,3 +1238,25 @@ svg { width: 100%; height: 100%; display: block; }
     grid-template-columns: repeat(2, 1fr);
   }
 }
+/* === 차트 자유 이동 패치 === */
+
+.reset-chart-button {
+  border-color: rgba(251, 191, 36, .35);
+  color: #fde68a;
+}
+
+.reset-chart-button:hover {
+  background: rgba(251, 191, 36, .12);
+}
+
+.hover-capture {
+  cursor: grab;
+}
+
+.hover-capture.dragging {
+  cursor: grabbing;
+}
+
+.interactive-chart {
+  touch-action: none;
+}

@@ -68,6 +68,10 @@ function getWindowedPoints(el, points) {
   return points.slice(start, end + 1);
 }
 
+function resetY(el) {
+  el.dataset.yPan = "0";
+}
+
 function setRange(el, days) {
   const points = parseJSON(el.dataset.points, []);
   if (!points.length) return;
@@ -81,6 +85,21 @@ function setRange(el, days) {
     el.dataset.windowStart = String(Math.max(0, points.length - length));
     el.dataset.windowEnd = String(points.length - 1);
   }
+
+  resetY(el);
+  drawSparkline(el, points, true);
+}
+
+function resetView(el) {
+  const points = parseJSON(el.dataset.points, []);
+  if (!points.length) return;
+
+  el.dataset.windowStart = "0";
+  el.dataset.windowEnd = String(points.length - 1);
+  resetY(el);
+
+  const panel = el.closest(".panel");
+  panel?.querySelectorAll(".range-button").forEach(btn => btn.classList.remove("active"));
 
   drawSparkline(el, points, true);
 }
@@ -123,8 +142,13 @@ function drawSparkline(el, rawPoints, big = false) {
   const minRaw = Math.min(...values, ...(big ? overlayValues : []));
   const maxRaw = Math.max(...values, ...(big ? overlayValues : []));
   const extra = (maxRaw - minRaw || 1) * 0.08;
-  const min = minRaw - extra;
-  const max = maxRaw + extra;
+  const baseMin = minRaw - extra;
+  const baseMax = maxRaw + extra;
+  const baseRange = baseMax - baseMin || 1;
+
+  const yPan = Number(el.dataset.yPan || 0);
+  const min = baseMin + yPan;
+  const max = baseMax + yPan;
   const range = max - min || 1;
 
   const chartW = width - padLeft - padRight;
@@ -273,11 +297,11 @@ function drawSparkline(el, rawPoints, big = false) {
   `;
 
   if (big) {
-    attachHoverAndZoom(el, allPoints, points, coords, { padLeft, padTop, padRight, padBottom, width, height, chartW, chartH });
+    attachHoverAndPan(el, allPoints, points, coords, { padLeft, padTop, padRight, padBottom, width, height, chartW, chartH, range });
   }
 }
 
-function attachHoverAndZoom(el, allPoints, points, coords, dims) {
+function attachHoverAndPan(el, allPoints, points, coords, dims) {
   const svg = el.querySelector("svg");
   const capture = el.querySelector(".hover-capture");
   if (!svg || !capture) return;
@@ -301,8 +325,11 @@ function attachHoverAndZoom(el, allPoints, points, coords, dims) {
 
   let dragging = false;
   let dragStartX = 0;
+  let dragStartY = 0;
   let dragStartStart = 0;
   let dragStartEnd = 0;
+  let dragStartYPan = 0;
+  let hasDragged = false;
 
   capture.addEventListener("mousemove", event => {
     const rect = svg.getBoundingClientRect();
@@ -310,13 +337,18 @@ function attachHoverAndZoom(el, allPoints, points, coords, dims) {
     const svgX = ratioX * dims.width;
 
     if (dragging) {
-      const currentX = event.clientX;
-      const dx = currentX - dragStartX;
-      const visibleCount = dragStartEnd - dragStartStart + 1;
-      const shift = Math.round((-dx / rect.width) * visibleCount * 1.6);
+      const dx = event.clientX - dragStartX;
+      const dy = event.clientY - dragStartY;
 
-      let nextStart = dragStartStart + shift;
-      let nextEnd = dragStartEnd + shift;
+      if (Math.abs(dx) > 2 || Math.abs(dy) > 2) hasDragged = true;
+
+      const visibleCount = dragStartEnd - dragStartStart + 1;
+
+      // 좌우 드래그: 시간 구간 이동
+      const shiftX = Math.round((-dx / rect.width) * visibleCount * 1.7);
+
+      let nextStart = dragStartStart + shiftX;
+      let nextEnd = dragStartEnd + shiftX;
 
       if (nextStart < 0) {
         nextEnd -= nextStart;
@@ -332,8 +364,15 @@ function attachHoverAndZoom(el, allPoints, points, coords, dims) {
       nextStart = clamp(nextStart, 0, Math.max(0, allPoints.length - 2));
       nextEnd = clamp(nextEnd, nextStart + 1, allPoints.length - 1);
 
+      // 상하 드래그: 가격축 이동
+      // 아래로 드래그하면 더 높은 가격대를 보이게, 위로 드래그하면 더 낮은 가격대를 보이게 함.
+      const priceShift = (dy / dims.chartH) * dims.range;
+      const nextYPan = dragStartYPan + priceShift;
+
       el.dataset.windowStart = String(nextStart);
       el.dataset.windowEnd = String(nextEnd);
+      el.dataset.yPan = String(nextYPan);
+
       drawSparkline(el, allPoints, true);
       return;
     }
@@ -381,9 +420,12 @@ function attachHoverAndZoom(el, allPoints, points, coords, dims) {
   capture.addEventListener("mousedown", event => {
     event.preventDefault();
     dragging = true;
+    hasDragged = false;
     dragStartX = event.clientX;
+    dragStartY = event.clientY;
     dragStartStart = Number(el.dataset.windowStart || 0);
     dragStartEnd = Number(el.dataset.windowEnd || allPoints.length - 1);
+    dragStartYPan = Number(el.dataset.yPan || 0);
     capture.classList.add("dragging");
   });
 
@@ -430,18 +472,13 @@ function attachHoverAndZoom(el, allPoints, points, coords, dims) {
 
     el.dataset.windowStart = String(nextStart);
     el.dataset.windowEnd = String(nextEnd);
+    resetY(el);
     drawSparkline(el, allPoints, true);
   }, { passive: false });
 
   capture.addEventListener("dblclick", event => {
     event.preventDefault();
-    el.dataset.windowStart = "0";
-    el.dataset.windowEnd = String(allPoints.length - 1);
-
-    const panel = el.closest(".panel");
-    panel?.querySelectorAll(".range-button").forEach(btn => btn.classList.remove("active"));
-
-    drawSparkline(el, allPoints, true);
+    resetView(el);
   });
 }
 
@@ -486,6 +523,12 @@ document.querySelectorAll(".range-button").forEach(button => {
     const panel = button.closest(".panel");
     const chart = panel.querySelector(".interactive-chart");
     if (!chart) return;
+
+    if (button.dataset.action === "reset-view") {
+      panel.querySelectorAll(".range-button").forEach(btn => btn.classList.remove("active"));
+      resetView(chart);
+      return;
+    }
 
     panel.querySelectorAll(".range-button").forEach(btn => btn.classList.remove("active"));
     button.classList.add("active");
