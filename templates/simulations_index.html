@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="asset-hero"><div class="container"><p class="eyebrow">투자 시뮬레이션</p><h1>수익보다 먼저, 버틸 수 있는지를 계산합니다</h1><p>적립식 투자, 고점 매수, 하락장 생존, 목표금액, 포트폴리오 버티기 난이도를 계산합니다.</p></div></section>
+<section class="container feature-grid simulation-menu">
+  <a href="/simulations/dca" class="feature-card"><span>01</span><h2>적립식 투자</h2><p>매주/매월 투자했다면 현재 얼마가 되었는지 계산합니다.</p></a>
+  <a href="/simulations/peak" class="feature-card"><span>02</span><h2>고점 매수 생존</h2><p>고점에 물렸다면 얼마나 아팠는지 계산합니다.</p></a>
+  <a href="/simulations/bear" class="feature-card"><span>03</span><h2>하락장 생존 통계</h2><p>과거 하락장의 깊이와 회복 기간을 확인합니다.</p></a>
+  <a href="/simulations/target" class="feature-card"><span>04</span><h2>목표금액 도달</h2><p>1억 같은 목표 금액까지 걸리는 시간을 시나리오로 봅니다.</p></a>
+  <a href="/simulations/portfolio" class="feature-card"><span>05</span><h2>포트폴리오 버티기</h2><p>여러 자산의 비중을 넣고 전체 난이도를 계산합니다.</p></a>
+</section>
+{% endblock %}

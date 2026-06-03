@@ -5,55 +5,32 @@
   <title>{{ page_title }} | {{ settings.site_name }}</title>
   <meta name="description" content="{{ page_description }}">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-
-  {% if settings.google_site_verification %}
-  <meta name="google-site-verification" content="{{ settings.google_site_verification }}">
-  {% endif %}
-
-  {% if settings.naver_site_verification %}
-  <meta name="naver-site-verification" content="{{ settings.naver_site_verification }}">
-  {% endif %}
-
+  {% if settings.google_site_verification %}<meta name="google-site-verification" content="{{ settings.google_site_verification }}">{% endif %}
+  {% if settings.naver_site_verification %}<meta name="naver-site-verification" content="{{ settings.naver_site_verification }}">{% endif %}
   <link rel="canonical" href="{{ settings.site_url }}{{ request.url.path }}">
   <meta property="og:title" content="{{ page_title }}">
   <meta property="og:description" content="{{ page_description }}">
   <meta property="og:type" content="website">
   <meta property="og:url" content="{{ settings.site_url }}{{ request.url.path }}">
   <meta name="twitter:card" content="summary_large_image">
-
   <link rel="stylesheet" href="/static/styles.css">
 </head>
-
 <body>
 <header class="site-header">
   <div class="container nav">
-    <a class="brand" href="/">
-      <span class="brand-dot"></span>
-      시장 사이클 연구소
-    </a>
-
+    <a class="brand" href="/"><span class="brand-dot"></span>시장 사이클 연구소</a>
     <nav>
       <a href="/">대시보드</a>
+      <a href="/simulations">시뮬레이션</a>
       <a href="/rankings/stress">스트레스 랭킹</a>
       <a href="/tools/last-year">작년 오늘</a>
       <a href="/analysis">분석 노트</a>
       <a href="/asset/BTC-USD">비트코인</a>
-      <a href="/asset/QQQ">나스닥</a>
     </nav>
   </div>
 </header>
-
-<main>
-  {% block content %}{% endblock %}
-</main>
-
-<footer class="footer">
-  <div class="container">
-    <span>© {{ settings.site_name }}</span>
-    <span>이 사이트는 시장 이해를 돕는 정보 도구이며, 투자 조언이 아닙니다.</span>
-  </div>
-</footer>
-
+<main>{% block content %}{% endblock %}</main>
+<footer class="footer"><div class="container"><span>© {{ settings.site_name }}</span><span>이 사이트는 시장 이해를 돕는 정보 도구이며, 투자 조언이 아닙니다.</span></div></footer>
 <script src="/static/app.js"></script>
 </body>
 </html>
