@@ -1278,3 +1278,44 @@ body.chart-dragging * {
 .hover-capture.dragging {
   cursor: grabbing;
 }
+/* === TradingView식 차트 패치 === */
+
+.trading-chart {
+  height: 460px;
+  min-height: 460px;
+  border-radius: 18px;
+  overflow: hidden;
+  background:
+    linear-gradient(180deg, rgba(15, 23, 42, .72), rgba(2, 6, 23, .38));
+  border: 1px solid rgba(125, 211, 252, .12);
+}
+
+.chart-fallback {
+  min-height: 420px;
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  font-weight: 900;
+  text-align: center;
+  padding: 24px;
+}
+
+.reset-chart-button {
+  border-color: rgba(251, 191, 36, .35);
+  color: #fde68a;
+}
+
+.reset-chart-button:hover {
+  background: rgba(251, 191, 36, .12);
+}
+
+.chart-controls {
+  margin-bottom: 14px;
+}
+
+@media (max-width: 620px) {
+  .trading-chart {
+    height: 360px;
+    min-height: 360px;
+  }
+}

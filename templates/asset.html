@@ -42,7 +42,6 @@
       <div class="chart-toolbar">
         <button type="button" class="chart-toggle active" data-overlay="ma">이동평균선</button>
         <button type="button" class="chart-toggle active" data-overlay="fib">피보나치</button>
-        <button type="button" class="chart-toggle active" data-overlay="labels">가격 라벨</button>
       </div>
 
       <div class="range-toolbar">
@@ -57,22 +56,17 @@
     </div>
 
     <div
-      class="big-chart interactive-chart"
+      class="big-chart trading-chart interactive-chart"
       data-points='{{ asset.chart | tojson }}'
       data-ma='{{ ma["items"] | tojson }}'
       data-fib='{{ fib["levels"] | tojson }}'
       data-current='{{ asset.metrics.current_price }}'
-      data-window-start=""
-      data-window-end=""
-      data-y-pan="0"
-      data-show-ma="true"
-      data-show-fib="true"
-      data-show-labels="true"
+      data-symbol='{{ asset.symbol }}'
     ></div>
 
     <div class="chart-help">
-      마우스 휠로 시간축 확대/축소, 드래그로 좌우·상하 이동, 더블클릭으로 전체 보기 초기화가 가능합니다.
-      확대한 뒤 차트를 잡고 움직이면 원하는 구간과 가격대를 볼 수 있습니다.
+      차트 위에서 드래그하면 좌우로 이동하고, 마우스 휠로 확대/축소할 수 있습니다.
+      우측 가격축과 하단 시간축은 자동으로 조정됩니다.
     </div>
   </div>
 
@@ -210,5 +204,7 @@
     </p>
   </div>
 </section>
+
+<script src="https://unpkg.com/lightweight-charts@4.2.1/dist/lightweight-charts.standalone.production.js"></script>
 
 {% endblock %}

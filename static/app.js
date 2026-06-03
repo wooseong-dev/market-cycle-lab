@@ -5,10 +5,6 @@ function money(v) {
   return v.toFixed(4);
 }
 
-function clamp(value, min, max) {
-  return Math.min(Math.max(value, min), max);
-}
-
 function parseJSON(value, fallback) {
   try {
     if (!value) return fallback;
@@ -18,491 +14,334 @@ function parseJSON(value, fallback) {
   }
 }
 
-function movingAverage(values, window) {
-  const out = [];
+function movingAverageData(data, window) {
+  const result = [];
   let sum = 0;
 
-  for (let i = 0; i < values.length; i++) {
-    sum += values[i];
+  for (let i = 0; i < data.length; i++) {
+    sum += data[i].value;
 
     if (i >= window) {
-      sum -= values[i - window];
+      sum -= data[i - window].value;
     }
 
     if (i >= window - 1) {
-      out.push(sum / window);
-    } else {
-      out.push(null);
+      result.push({
+        time: data[i].time,
+        value: sum / window,
+      });
     }
   }
 
-  return out;
+  return result;
 }
 
-function pathFromCoords(coords) {
+function svgPath(coords) {
   return coords
     .filter(c => c && Number.isFinite(c[0]) && Number.isFinite(c[1]))
     .map((c, i) => `${i === 0 ? "M" : "L"}${c[0].toFixed(2)},${c[1].toFixed(2)}`)
     .join(" ");
 }
 
-function getWindowedPoints(el, points) {
-  if (!points || points.length < 2) return points || [];
-
-  let start = Number(el.dataset.windowStart);
-  let end = Number(el.dataset.windowEnd);
-
-  if (!Number.isFinite(start) || !Number.isFinite(end) || start < 0 || end <= start) {
-    start = 0;
-    end = points.length - 1;
-    el.dataset.windowStart = String(start);
-    el.dataset.windowEnd = String(end);
-  }
-
-  start = clamp(Math.round(start), 0, points.length - 2);
-  end = clamp(Math.round(end), start + 1, points.length - 1);
-
-  el.dataset.windowStart = String(start);
-  el.dataset.windowEnd = String(end);
-
-  return points.slice(start, end + 1);
-}
-
-function resetY(el) {
-  el.dataset.yPan = "0";
-}
-
-function setRange(el, days) {
-  const points = parseJSON(el.dataset.points, []);
-  if (!points.length) return;
-
-  if (days === "all") {
-    el.dataset.windowStart = "0";
-    el.dataset.windowEnd = String(points.length - 1);
-  } else {
-    const n = Number(days);
-    const length = Math.min(points.length, n);
-    el.dataset.windowStart = String(Math.max(0, points.length - length));
-    el.dataset.windowEnd = String(points.length - 1);
-  }
-
-  resetY(el);
-  drawSparkline(el, points, true);
-}
-
-function resetView(el) {
-  const points = parseJSON(el.dataset.points, []);
-  if (!points.length) return;
-
-  el.dataset.windowStart = "0";
-  el.dataset.windowEnd = String(points.length - 1);
-  resetY(el);
-
-  const panel = el.closest(".panel");
-  panel?.querySelectorAll(".range-button").forEach(btn => btn.classList.remove("active"));
-
-  drawSparkline(el, points, true);
-}
-
-function drawSparkline(el, rawPoints, big = false) {
-  if (!rawPoints || rawPoints.length < 2) return;
-
-  const allPoints = rawPoints;
-  const points = big ? getWindowedPoints(el, allPoints) : allPoints;
-
+function drawMiniChart(el, points) {
   if (!points || points.length < 2) return;
 
-  const width = Math.max(el.clientWidth || 640, 320);
-  const height = big ? 420 : 140;
-
-  const padLeft = big ? 54 : 16;
-  const padRight = big ? 82 : 16;
-  const padTop = big ? 30 : 14;
-  const padBottom = big ? 46 : 14;
-
-  const maData = parseJSON(el.dataset.ma, []);
-  const fibData = parseJSON(el.dataset.fib, []);
-
-  const showMA = el.dataset.showMa !== "false";
-  const showFib = el.dataset.showFib !== "false";
-  const showLabels = el.dataset.showLabels !== "false";
+  const width = Math.max(el.clientWidth || 360, 220);
+  const height = 140;
+  const pad = 12;
 
   const values = points.map(p => Number(p.close)).filter(v => Number.isFinite(v));
-
-  const overlayValues = [];
-  maData.forEach(item => {
-    const v = Number(item.value);
-    if (Number.isFinite(v)) overlayValues.push(v);
-  });
-  fibData.forEach(item => {
-    const v = Number(item.price);
-    if (Number.isFinite(v)) overlayValues.push(v);
-  });
-
-  const minRaw = Math.min(...values, ...(big ? overlayValues : []));
-  const maxRaw = Math.max(...values, ...(big ? overlayValues : []));
-  const extra = (maxRaw - minRaw || 1) * 0.08;
-  const baseMin = minRaw - extra;
-  const baseMax = maxRaw + extra;
-  const baseRange = baseMax - baseMin || 1;
-
-  const yPan = Number(el.dataset.yPan || 0);
-  const min = baseMin + yPan;
-  const max = baseMax + yPan;
+  const min = Math.min(...values);
+  const max = Math.max(...values);
   const range = max - min || 1;
 
-  const chartW = width - padLeft - padRight;
-  const chartH = height - padTop - padBottom;
+  const xFor = i => pad + (i / (points.length - 1)) * (width - pad * 2);
+  const yFor = value => pad + (1 - ((value - min) / range)) * (height - pad * 2);
 
-  const xFor = i => padLeft + (i / (points.length - 1)) * chartW;
-  const yFor = value => padTop + (1 - ((value - min) / range)) * chartH;
+  const coords = points.map((p, i) => [xFor(i), yFor(Number(p.close)), Number(p.close)]);
+  const d = svgPath(coords);
 
-  const coords = points.map((p, i) => [xFor(i), yFor(Number(p.close)), Number(p.close), p.date]);
-  const d = pathFromCoords(coords);
-
-  const last = coords[coords.length - 1];
   const high = coords.reduce((a, b) => (b[2] > a[2] ? b : a), coords[0]);
   const low = coords.reduce((a, b) => (b[2] < a[2] ? b : a), coords[0]);
-
-  const gridCount = big ? 6 : 2;
-  const gridLines = [];
-  const axisLabels = [];
-
-  for (let i = 0; i < gridCount; i++) {
-    const ratio = i / (gridCount - 1);
-    const y = padTop + ratio * chartH;
-    const price = max - ratio * range;
-
-    gridLines.push(`<line class="grid-line" x1="${padLeft}" y1="${y}" x2="${width - padRight}" y2="${y}"></line>`);
-
-    if (big) {
-      axisLabels.push(`
-        <text class="axis-label" x="${width - padRight + 12}" y="${y + 4}">${money(price)}</text>
-      `);
-    }
-  }
-
-  if (big) {
-    const dateLabels = [
-      { i: 0, anchor: "start" },
-      { i: Math.floor(points.length / 2), anchor: "middle" },
-      { i: points.length - 1, anchor: "end" },
-    ];
-
-    dateLabels.forEach(x => {
-      const c = coords[x.i];
-      if (!c) return;
-      axisLabels.push(`
-        <text class="date-axis-label" text-anchor="${x.anchor}" x="${c[0]}" y="${height - 12}">${c[3]}</text>
-      `);
-    });
-  }
-
-  const startIndex = Number(el.dataset.windowStart || 0);
-
-  const maOverlays = [];
-  if (big && showMA) {
-    const closeValuesAll = allPoints.map(p => Number(p.close));
-
-    [20, 60, 200].forEach(window => {
-      if (closeValuesAll.length >= Math.min(window, 10)) {
-        const allMaValues = movingAverage(closeValuesAll, Math.min(window, closeValuesAll.length));
-        const visibleMaValues = allMaValues.slice(startIndex, startIndex + points.length);
-        const maCoords = visibleMaValues.map((v, i) => v === null ? null : [xFor(i), yFor(v)]);
-        const maPath = pathFromCoords(maCoords);
-
-        if (maPath) {
-          maOverlays.push(`<path class="ma-line ma-${window}" d="${maPath}"></path>`);
-        }
-      }
-    });
-
-    maData.forEach(item => {
-      const price = Number(item.value);
-      if (!Number.isFinite(price)) return;
-
-      const y = yFor(price);
-      if (y < padTop || y > height - padBottom) return;
-
-      maOverlays.push(`
-        <line class="ma-level" x1="${padLeft}" y1="${y}" x2="${width - padRight}" y2="${y}"></line>
-        <text class="overlay-label ma-label" x="${width - padRight - 6}" y="${y - 6}">${item.label} ${money(price)}</text>
-      `);
-    });
-  }
-
-  const fibOverlays = [];
-  if (big && showFib) {
-    fibData.forEach(item => {
-      const price = Number(item.price);
-      if (!Number.isFinite(price)) return;
-
-      const y = yFor(price);
-      if (y < padTop || y > height - padBottom) return;
-
-      fibOverlays.push(`
-        <line class="fib-overlay" x1="${padLeft}" y1="${y}" x2="${width - padRight}" y2="${y}"></line>
-        <text class="overlay-label fib-label" x="${padLeft + 8}" y="${y - 6}">피보 ${item.label} · ${money(price)}</text>
-      `);
-    });
-  }
-
-  const labels = big && showLabels
-    ? `
-      <text class="chart-label" x="${padLeft}" y="${padTop - 8}">구간 고점 ${money(high[2])}</text>
-      <text class="chart-label" x="${padLeft}" y="${height - 26}">구간 저점 ${money(low[2])}</text>
-      <text class="chart-label end" x="${width - padRight}" y="${last[1] - 10}">현재 ${money(last[2])}</text>
-    `
-    : "";
-
-  const hoverLayer = big
-    ? `
-      <line class="crosshair-x" x1="${padLeft}" y1="${padTop}" x2="${padLeft}" y2="${height - padBottom}"></line>
-      <line class="crosshair-y" x1="${padLeft}" y1="${padTop}" x2="${width - padRight}" y2="${padTop}"></line>
-      <circle class="hover-dot" cx="${padLeft}" cy="${padTop}" r="5"></circle>
-      <rect class="tooltip-bg" x="${padLeft + 12}" y="${padTop + 12}" width="168" height="56" rx="10"></rect>
-      <text class="tooltip-date" x="${padLeft + 24}" y="${padTop + 34}"></text>
-      <text class="tooltip-price" x="${padLeft + 24}" y="${padTop + 55}"></text>
-      <rect class="hover-capture" x="${padLeft}" y="${padTop}" width="${chartW}" height="${chartH}"></rect>
-    `
-    : "";
+  const last = coords[coords.length - 1];
 
   el.innerHTML = `
     <svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="none">
       <defs>
-        <linearGradient id="lineGlow" x1="0" x2="1" y1="0" y2="0">
+        <linearGradient id="miniLineGlow" x1="0" x2="1" y1="0" y2="0">
           <stop offset="0%" stop-color="#22d3ee"></stop>
           <stop offset="50%" stop-color="#8b5cf6"></stop>
           <stop offset="100%" stop-color="#34d399"></stop>
         </linearGradient>
       </defs>
-
-      ${gridLines.join("")}
-      ${axisLabels.join("")}
-
-      <path class="area" d="${d} L ${width - padRight},${height - padBottom} L ${padLeft},${height - padBottom} Z"></path>
+      <path class="area" d="${d} L ${width - pad},${height - pad} L ${pad},${height - pad} Z"></path>
       <path class="glow" d="${d}"></path>
       <path class="line" d="${d}"></path>
-
-      ${fibOverlays.join("")}
-      ${maOverlays.join("")}
-
-      <circle class="dot high-dot" cx="${high[0]}" cy="${high[1]}" r="${big ? 4 : 3}"></circle>
-      <circle class="dot low-dot" cx="${low[0]}" cy="${low[1]}" r="${big ? 4 : 3}"></circle>
-      <circle class="dot last-dot" cx="${last[0]}" cy="${last[1]}" r="${big ? 5 : 4}"></circle>
-
-      ${labels}
-      ${hoverLayer}
+      <circle class="dot high-dot" cx="${high[0]}" cy="${high[1]}" r="3"></circle>
+      <circle class="dot low-dot" cx="${low[0]}" cy="${low[1]}" r="3"></circle>
+      <circle class="dot last-dot" cx="${last[0]}" cy="${last[1]}" r="4"></circle>
     </svg>
   `;
-
-  if (big) {
-    attachHoverAndPan(el, allPoints, points, coords, { padLeft, padTop, padRight, padBottom, width, height, chartW, chartH, range });
-  }
 }
 
-function attachHoverAndPan(el, allPoints, points, coords, dims) {
-  const svg = el.querySelector("svg");
-  const capture = el.querySelector(".hover-capture");
-  if (!svg || !capture) return;
+const chartStore = new WeakMap();
 
-  const cx = el.querySelector(".crosshair-x");
-  const cy = el.querySelector(".crosshair-y");
-  const dot = el.querySelector(".hover-dot");
-  const bg = el.querySelector(".tooltip-bg");
-  const dateText = el.querySelector(".tooltip-date");
-  const priceText = el.querySelector(".tooltip-price");
+function initTradingChart(el) {
+  const points = parseJSON(el.dataset.points, []);
+  if (!points || points.length < 2) return;
 
-  const hoverEls = [cx, cy, dot, bg, dateText, priceText];
+  if (!window.LightweightCharts) {
+    el.innerHTML = `<div class="chart-fallback">차트 라이브러리를 불러오지 못했습니다. 인터넷 연결 또는 CDN 차단 여부를 확인해 주세요.</div>`;
+    return;
+  }
 
-  function setVisible(show) {
-    hoverEls.forEach(x => {
-      if (x) x.style.opacity = show ? "1" : "0";
+  const maRaw = parseJSON(el.dataset.ma, []);
+  const fibRaw = parseJSON(el.dataset.fib, []);
+
+  const data = points
+    .map(p => ({
+      time: p.date,
+      value: Number(p.close),
+    }))
+    .filter(p => p.time && Number.isFinite(p.value));
+
+  if (data.length < 2) return;
+
+  el.innerHTML = "";
+
+  const chart = LightweightCharts.createChart(el, {
+    width: el.clientWidth || 800,
+    height: el.clientHeight || 460,
+    layout: {
+      background: { type: "solid", color: "transparent" },
+      textColor: "#94a3b8",
+      fontFamily: "Inter, system-ui, sans-serif",
+    },
+    grid: {
+      vertLines: { color: "rgba(148, 163, 184, 0.08)" },
+      horzLines: { color: "rgba(148, 163, 184, 0.10)" },
+    },
+    rightPriceScale: {
+      visible: true,
+      borderColor: "rgba(148, 163, 184, 0.18)",
+      scaleMargins: { top: 0.12, bottom: 0.18 },
+    },
+    timeScale: {
+      visible: true,
+      borderColor: "rgba(148, 163, 184, 0.18)",
+      timeVisible: true,
+      secondsVisible: false,
+      rightOffset: 8,
+      barSpacing: 6,
+      fixLeftEdge: false,
+      fixRightEdge: false,
+      lockVisibleTimeRangeOnResize: true,
+    },
+    crosshair: {
+      mode: LightweightCharts.CrosshairMode.Normal,
+      vertLine: {
+        color: "rgba(226, 232, 240, 0.42)",
+        width: 1,
+        style: LightweightCharts.LineStyle.Dashed,
+        labelBackgroundColor: "#0f172a",
+      },
+      horzLine: {
+        color: "rgba(226, 232, 240, 0.42)",
+        width: 1,
+        style: LightweightCharts.LineStyle.Dashed,
+        labelBackgroundColor: "#0f172a",
+      },
+    },
+    handleScroll: {
+      mouseWheel: true,
+      pressedMouseMove: true,
+      horzTouchDrag: true,
+      vertTouchDrag: true,
+    },
+    handleScale: {
+      axisPressedMouseMove: true,
+      mouseWheel: true,
+      pinch: true,
+    },
+    localization: {
+      priceFormatter: price => money(price),
+    },
+  });
+
+  const priceSeries = chart.addAreaSeries({
+    lineColor: "#22d3ee",
+    topColor: "rgba(34, 211, 238, 0.24)",
+    bottomColor: "rgba(34, 211, 238, 0.03)",
+    lineWidth: 2,
+    priceLineVisible: true,
+    lastValueVisible: true,
+    crosshairMarkerVisible: true,
+    crosshairMarkerRadius: 5,
+  });
+
+  priceSeries.setData(data);
+
+  const maSeries = [];
+
+  const ma20 = chart.addLineSeries({
+    color: "#22d3ee",
+    lineWidth: 1,
+    priceLineVisible: false,
+    lastValueVisible: false,
+  });
+  ma20.setData(movingAverageData(data, 20));
+  maSeries.push(ma20);
+
+  const ma60 = chart.addLineSeries({
+    color: "#a78bfa",
+    lineWidth: 1,
+    priceLineVisible: false,
+    lastValueVisible: false,
+  });
+  ma60.setData(movingAverageData(data, 60));
+  maSeries.push(ma60);
+
+  const ma200 = chart.addLineSeries({
+    color: "#f59e0b",
+    lineWidth: 1,
+    priceLineVisible: false,
+    lastValueVisible: false,
+  });
+  ma200.setData(movingAverageData(data, 200));
+  maSeries.push(ma200);
+
+  const fibLines = [];
+  fibRaw.forEach(level => {
+    const price = Number(level.price);
+    if (!Number.isFinite(price)) return;
+
+    const line = priceSeries.createPriceLine({
+      price,
+      color: "rgba(167, 139, 250, 0.72)",
+      lineWidth: 1,
+      lineStyle: LightweightCharts.LineStyle.Dashed,
+      axisLabelVisible: true,
+      title: `피보 ${level.label}`,
+    });
+
+    fibLines.push(line);
+  });
+
+  const high = data.reduce((a, b) => (b.value > a.value ? b : a), data[0]);
+  const low = data.reduce((a, b) => (b.value < a.value ? b : a), data[0]);
+
+  priceSeries.createPriceLine({
+    price: high.value,
+    color: "rgba(52, 211, 153, 0.7)",
+    lineWidth: 1,
+    lineStyle: LightweightCharts.LineStyle.Dotted,
+    axisLabelVisible: true,
+    title: "구간 고점",
+  });
+
+  priceSeries.createPriceLine({
+    price: low.value,
+    color: "rgba(251, 113, 133, 0.7)",
+    lineWidth: 1,
+    lineStyle: LightweightCharts.LineStyle.Dotted,
+    axisLabelVisible: true,
+    title: "구간 저점",
+  });
+
+  const state = {
+    chart,
+    priceSeries,
+    maSeries,
+    fibLines,
+    data,
+    maVisible: true,
+    fibVisible: true,
+  };
+
+  chartStore.set(el, state);
+  setChartRange(el, "1825");
+}
+
+function setChartRange(el, days) {
+  const state = chartStore.get(el);
+  if (!state) return;
+
+  const { chart, data } = state;
+
+  if (days === "all") {
+    chart.timeScale().fitContent();
+    return;
+  }
+
+  const n = Number(days);
+  const length = Math.min(data.length, n);
+  const fromIndex = Math.max(0, data.length - length);
+  const from = data[fromIndex].time;
+  const to = data[data.length - 1].time;
+
+  chart.timeScale().setVisibleRange({ from, to });
+}
+
+function resetTradingChart(el) {
+  const state = chartStore.get(el);
+  if (!state) return;
+
+  state.chart.timeScale().fitContent();
+  state.chart.priceScale("right").applyOptions({
+    autoScale: true,
+  });
+}
+
+function setOverlay(el, overlay, active) {
+  const state = chartStore.get(el);
+  if (!state) return;
+
+  if (overlay === "ma") {
+    state.maVisible = active;
+
+    state.maSeries.forEach(series => {
+      series.applyOptions({
+        visible: active,
+      });
     });
   }
 
-  setVisible(false);
+  if (overlay === "fib") {
+    state.fibVisible = active;
 
-  function showHover(event) {
-    const rect = svg.getBoundingClientRect();
-    const ratioX = (event.clientX - rect.left) / rect.width;
-    const svgX = ratioX * dims.width;
+    state.fibLines.forEach(line => {
+      state.priceSeries.removePriceLine(line);
+    });
 
-    const clampedX = clamp(svgX, dims.padLeft, dims.width - dims.padRight);
-    const index = Math.round(((clampedX - dims.padLeft) / dims.chartW) * (points.length - 1));
-    const safeIndex = clamp(index, 0, points.length - 1);
-    const c = coords[safeIndex];
+    state.fibLines = [];
 
-    if (!c) return;
+    if (active) {
+      const fibRaw = parseJSON(el.dataset.fib, []);
+      fibRaw.forEach(level => {
+        const price = Number(level.price);
+        if (!Number.isFinite(price)) return;
 
-    const x = c[0];
-    const y = c[1];
+        const line = state.priceSeries.createPriceLine({
+          price,
+          color: "rgba(167, 139, 250, 0.72)",
+          lineWidth: 1,
+          lineStyle: LightweightCharts.LineStyle.Dashed,
+          axisLabelVisible: true,
+          title: `피보 ${level.label}`,
+        });
 
-    cx.setAttribute("x1", x);
-    cx.setAttribute("x2", x);
-    cy.setAttribute("y1", y);
-    cy.setAttribute("y2", y);
-    dot.setAttribute("cx", x);
-    dot.setAttribute("cy", y);
-
-    let tooltipX = x + 14;
-    let tooltipY = y - 72;
-
-    if (tooltipX > dims.width - dims.padRight - 180) tooltipX = x - 186;
-    if (tooltipY < dims.padTop + 8) tooltipY = y + 18;
-
-    bg.setAttribute("x", tooltipX);
-    bg.setAttribute("y", tooltipY);
-    dateText.setAttribute("x", tooltipX + 12);
-    dateText.setAttribute("y", tooltipY + 23);
-    priceText.setAttribute("x", tooltipX + 12);
-    priceText.setAttribute("y", tooltipY + 45);
-
-    dateText.textContent = c[3];
-    priceText.textContent = `가격 ${money(c[2])}`;
-
-    setVisible(true);
+        state.fibLines.push(line);
+      });
+    }
   }
-
-  capture.addEventListener("mousemove", showHover);
-  capture.addEventListener("mouseleave", () => setVisible(false));
-
-  capture.addEventListener("mousedown", event => {
-    event.preventDefault();
-
-    const drag = {
-      startX: event.clientX,
-      startY: event.clientY,
-      startStart: Number(el.dataset.windowStart || 0),
-      startEnd: Number(el.dataset.windowEnd || allPoints.length - 1),
-      startYPan: Number(el.dataset.yPan || 0),
-      visibleCount: Number(el.dataset.windowEnd || allPoints.length - 1) - Number(el.dataset.windowStart || 0) + 1,
-      lastFrame: 0,
-    };
-
-    capture.classList.add("dragging");
-    document.body.classList.add("chart-dragging");
-
-    function onMove(moveEvent) {
-      moveEvent.preventDefault();
-
-      const rect = svg.getBoundingClientRect();
-      const dx = moveEvent.clientX - drag.startX;
-      const dy = moveEvent.clientY - drag.startY;
-
-      // 좌우 드래그 민감도 강화
-      const shiftX = Math.round((-dx / Math.max(rect.width, 1)) * drag.visibleCount * 3.2);
-
-      let nextStart = drag.startStart + shiftX;
-      let nextEnd = drag.startEnd + shiftX;
-
-      if (nextStart < 0) {
-        nextEnd -= nextStart;
-        nextStart = 0;
-      }
-
-      if (nextEnd > allPoints.length - 1) {
-        const overflow = nextEnd - (allPoints.length - 1);
-        nextStart -= overflow;
-        nextEnd = allPoints.length - 1;
-      }
-
-      nextStart = clamp(nextStart, 0, Math.max(0, allPoints.length - 2));
-      nextEnd = clamp(nextEnd, nextStart + 1, allPoints.length - 1);
-
-      // 상하 드래그 민감도 강화
-      const priceShift = (dy / Math.max(dims.chartH, 1)) * dims.range * 1.35;
-      const nextYPan = drag.startYPan + priceShift;
-
-      el.dataset.windowStart = String(nextStart);
-      el.dataset.windowEnd = String(nextEnd);
-      el.dataset.yPan = String(nextYPan);
-
-      const now = performance.now();
-      if (now - drag.lastFrame > 24) {
-        drag.lastFrame = now;
-        drawSparkline(el, allPoints, true);
-      }
-    }
-
-    function onUp() {
-      window.removeEventListener("mousemove", onMove);
-      window.removeEventListener("mouseup", onUp);
-      document.body.classList.remove("chart-dragging");
-
-      const freshCapture = el.querySelector(".hover-capture");
-      freshCapture?.classList.remove("dragging");
-
-      drawSparkline(el, allPoints, true);
-    }
-
-    window.addEventListener("mousemove", onMove, { passive: false });
-    window.addEventListener("mouseup", onUp);
-  });
-
-  capture.addEventListener("wheel", event => {
-    event.preventDefault();
-
-    const total = allPoints.length;
-    let start = Number(el.dataset.windowStart || 0);
-    let end = Number(el.dataset.windowEnd || total - 1);
-
-    const visible = end - start + 1;
-    const minVisible = Math.min(30, total);
-    const zoomIn = event.deltaY < 0;
-    const factor = zoomIn ? 0.82 : 1.22;
-    let nextVisible = Math.round(visible * factor);
-
-    nextVisible = clamp(nextVisible, minVisible, total);
-
-    const rect = svg.getBoundingClientRect();
-    const ratio = clamp((event.clientX - rect.left) / rect.width, 0, 1);
-    const center = start + ratio * visible;
-
-    let nextStart = Math.round(center - nextVisible * ratio);
-    let nextEnd = nextStart + nextVisible - 1;
-
-    if (nextStart < 0) {
-      nextEnd -= nextStart;
-      nextStart = 0;
-    }
-
-    if (nextEnd > total - 1) {
-      const overflow = nextEnd - (total - 1);
-      nextStart -= overflow;
-      nextEnd = total - 1;
-    }
-
-    nextStart = clamp(nextStart, 0, Math.max(0, total - 2));
-    nextEnd = clamp(nextEnd, nextStart + 1, total - 1);
-
-    el.dataset.windowStart = String(nextStart);
-    el.dataset.windowEnd = String(nextEnd);
-    resetY(el);
-    drawSparkline(el, allPoints, true);
-  }, { passive: false });
-
-  capture.addEventListener("dblclick", event => {
-    event.preventDefault();
-    resetView(el);
-  });
 }
 
 document.querySelectorAll(".mini-chart").forEach(el => {
-  try {
-    drawSparkline(el, parseJSON(el.dataset.points, []), false);
-  } catch (e) {}
+  drawMiniChart(el, parseJSON(el.dataset.points, []));
 });
 
-document.querySelectorAll(".big-chart").forEach(el => {
-  try {
-    const points = parseJSON(el.dataset.points, []);
-    if (el.classList.contains("interactive-chart")) {
-      setRange(el, "1825");
-    } else {
-      drawSparkline(el, points, true);
-    }
-  } catch (e) {}
+document.querySelectorAll(".trading-chart").forEach(el => {
+  initTradingChart(el);
 });
 
 document.querySelectorAll(".chart-toggle").forEach(button => {
@@ -510,45 +349,43 @@ document.querySelectorAll(".chart-toggle").forEach(button => {
     button.classList.toggle("active");
 
     const panel = button.closest(".panel");
-    const chart = panel.querySelector(".interactive-chart");
+    const chart = panel.querySelector(".trading-chart");
     if (!chart) return;
 
-    const overlay = button.dataset.overlay;
-    const active = button.classList.contains("active");
-
-    if (overlay === "ma") chart.dataset.showMa = String(active);
-    if (overlay === "fib") chart.dataset.showFib = String(active);
-    if (overlay === "labels") chart.dataset.showLabels = String(active);
-
-    drawSparkline(chart, parseJSON(chart.dataset.points, []), true);
+    setOverlay(chart, button.dataset.overlay, button.classList.contains("active"));
   });
 });
 
 document.querySelectorAll(".range-button").forEach(button => {
   button.addEventListener("click", () => {
     const panel = button.closest(".panel");
-    const chart = panel.querySelector(".interactive-chart");
+    const chart = panel.querySelector(".trading-chart");
     if (!chart) return;
 
     if (button.dataset.action === "reset-view") {
       panel.querySelectorAll(".range-button").forEach(btn => btn.classList.remove("active"));
-      resetView(chart);
+      resetTradingChart(chart);
       return;
     }
 
     panel.querySelectorAll(".range-button").forEach(btn => btn.classList.remove("active"));
     button.classList.add("active");
-
-    setRange(chart, button.dataset.range);
+    setChartRange(chart, button.dataset.range);
   });
 });
 
 window.addEventListener("resize", () => {
-  document.querySelectorAll(".mini-chart").forEach(el => {
-    drawSparkline(el, parseJSON(el.dataset.points, []), false);
+  document.querySelectorAll(".trading-chart").forEach(el => {
+    const state = chartStore.get(el);
+    if (!state) return;
+
+    state.chart.applyOptions({
+      width: el.clientWidth || 800,
+      height: el.clientHeight || 460,
+    });
   });
 
-  document.querySelectorAll(".big-chart").forEach(el => {
-    drawSparkline(el, parseJSON(el.dataset.points, []), true);
+  document.querySelectorAll(".mini-chart").forEach(el => {
+    drawMiniChart(el, parseJSON(el.dataset.points, []));
   });
 });
