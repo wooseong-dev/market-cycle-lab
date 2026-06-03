@@ -10,6 +10,7 @@ from app.config import get_settings
 from app.assets import ASSETS, DEFAULT_ASSETS
 from app.data import get_history
 from app.market_math import calculate_metrics, to_chart_points
+from app.technical_analysis import analyze_technical
 
 settings = get_settings()
 
@@ -94,7 +95,14 @@ def drawdown_text(value):
 
 
 def clean_symbol(symbol: str) -> str:
-    return symbol.strip().upper().replace(" ", "")
+    cleaned = symbol.strip().upper().replace(" ", "")
+
+    # 한국 주식 코드 6자리만 입력하면 기본적으로 코스피(.KS)로 처리
+    # 예: 012450 -> 012450.KS
+    if cleaned.isdigit() and len(cleaned) == 6:
+        return f"{cleaned}.KS"
+
+    return cleaned
 
 
 def custom_asset_info(symbol: str):
@@ -146,10 +154,13 @@ def build_asset(symbol: str):
     if not metrics:
         raise HTTPException(status_code=500, detail="가격 데이터를 계산하지 못했습니다.")
 
+    technical = analyze_technical(df)
+
     return {
         "ticker": symbol,
         **info,
         "metrics": metrics,
+        "technical": technical,
         "chart": to_chart_points(df),
         "fallback": fallback,
     }
