@@ -206,14 +206,44 @@ def api_asset(symbol: str): return JSONResponse(build_asset(symbol))
 @app.get('/robots.txt', response_class=PlainTextResponse)
 def robots(): return f'User-agent: *\nAllow: /\n\nSitemap: {settings.site_url}/sitemap.xml\n'
 
-@app.get('/sitemap.xml')
+@app.get("/sitemap.xml")
 def sitemap():
     today = datetime.now(timezone.utc).date().isoformat()
-    paths=['/','/rankings/stress','/rankings/drawdown','/rankings/correction','/tools/last-year','/simulations','/simulations/dca','/simulations/peak','/simulations/bear','/simulations/target','/simulations/portfolio','/analysis']
-    urls=[f'<url><loc>{settings.site_url}{p}</loc><lastmod>{today}</lastmod></url>' for p in paths]
+    base_url = settings.site_url.rstrip("/")
+
+    urls = [
+        f"{base_url}/",
+        f"{base_url}/rankings/stress",
+        f"{base_url}/rankings/drawdown",
+        f"{base_url}/rankings/correction",
+        f"{base_url}/tools/last-year",
+        f"{base_url}/simulations",
+        f"{base_url}/simulations/dca",
+        f"{base_url}/simulations/peak",
+        f"{base_url}/simulations/bear",
+        f"{base_url}/simulations/target",
+        f"{base_url}/simulations/portfolio",
+        f"{base_url}/analysis",
+    ]
+
     for symbol in DEFAULT_ASSETS:
-        urls.append(f'<url><loc>{settings.site_url}/asset/{symbol}</loc><lastmod>{today}</lastmod></url>')
+        urls.append(f"{base_url}/asset/{symbol}")
+
     for post in load_analysis_posts():
-        urls.append(f"<url><loc>{settings.site_url}/analysis/{post['slug']}</loc><lastmod>{post.get('date') or today}</lastmod></url>")
-    xml=['<?xml version="1.0" encoding="UTF-8"?>','<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',*urls,'</urlset>']
-    return Response('\n'.join(xml), media_type='application/xml')
+        urls.append(f"{base_url}/analysis/{post['slug']}")
+
+    items = []
+    for url in urls:
+        items.append(
+            f"""  <url>
+    <loc>{url}</loc>
+    <lastmod>{today}</lastmod>
+  </url>"""
+        )
+
+    xml = f"""<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+{chr(10).join(items)}
+</urlset>"""
+
+    return Response(xml, media_type="application/xml")
