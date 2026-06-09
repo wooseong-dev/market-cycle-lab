@@ -203,8 +203,15 @@ def api_assets(): return JSONResponse(build_default_assets())
 @app.get('/api/asset/{symbol:path}')
 def api_asset(symbol: str): return JSONResponse(build_asset(symbol))
 
-@app.get('/robots.txt', response_class=PlainTextResponse)
-def robots(): return f'User-agent: *\nAllow: /\n\nSitemap: {settings.site_url}/sitemap.xml\n'
+@app.get("/robots.txt", response_class=PlainTextResponse)
+def robots():
+    base_url = settings.site_url.rstrip("/")
+    return f"""User-agent: *
+Allow: /
+
+Sitemap: {base_url}/sitemap.xml
+"""
+
 
 @app.get("/sitemap.xml")
 def sitemap():
