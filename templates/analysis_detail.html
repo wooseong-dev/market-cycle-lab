@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block content %}
+
+<section class="asset-hero">
+  <div class="container">
+    <p class="eyebrow">{{ post.symbol }} · {{ post.date }} · {{ post.status }}</p>
+    <h1>{{ post.title }}</h1>
+    <p>{{ post.summary }}</p>
+
+    {% if post.tradingview_url %}
+    <div class="hero-actions">
+      <a class="button primary" href="{{ post.tradingview_url }}" target="_blank" rel="noopener">TradingView 차트 보기</a>
+    </div>
+    {% endif %}
+  </div>
+</section>
+
+<section class="container analysis-layout">
+  {% if post.chart_image %}
+  <div class="panel chart-snapshot">
+    <img src="{{ post.chart_image }}" alt="{{ post.title }}">
+  </div>
+  {% endif %}
+
+  <div class="detail-metrics">
+    <div class="metric-card">
+      <span>자산</span>
+      <strong>{{ post.symbol }}</strong>
+      <p>분석 대상</p>
+    </div>
+    <div class="metric-card">
+      <span>관찰가</span>
+      <strong>{{ post.watch_price or "-" }}</strong>
+      <p>확인 가격대</p>
+    </div>
+    <div class="metric-card">
+      <span>무효화</span>
+      <strong>{{ post.invalid or "-" }}</strong>
+      <p>관점 폐기 기준</p>
+    </div>
+    <div class="metric-card">
+      <span>상태</span>
+      <strong>{{ post.status }}</strong>
+      <p>매수·매도 추천 아님</p>
+    </div>
+  </div>
+
+  <article class="panel analysis-body">
+    {{ post.body_html }}
+  </article>
+</section>
+
+{% endblock %}

@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block content %}
+
+<section class="asset-hero">
+  <div class="container">
+    <p class="eyebrow">분석 노트</p>
+    <h1>시장 관찰 기록</h1>
+    <p>TradingView 스냅샷, 관찰 구간, 무효화 기준을 기록하는 공간입니다.</p>
+  </div>
+</section>
+
+<section class="container">
+  {% if posts %}
+  <div class="post-grid">
+    {% for post in posts %}
+    <a href="/analysis/{{ post.slug }}" class="post-card">
+      <span>{{ post.date }} · {{ post.symbol }} · {{ post.status }}</span>
+      <h3>{{ post.title }}</h3>
+      <p>{{ post.summary or "시장 구조와 관찰 구간을 기록한 분석 노트입니다." }}</p>
+    </a>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="panel">
+    <h2>아직 분석 노트가 없습니다</h2>
+    <p class="muted">`content/analysis/*.md` 파일을 추가하면 자동으로 이곳에 표시됩니다.</p>
+  </div>
+  {% endif %}
+</section>
+
+{% endblock %}

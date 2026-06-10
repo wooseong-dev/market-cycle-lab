@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block content %}
+
+<section class="asset-hero">
+  <div class="container">
+    <p class="eyebrow">랭킹</p>
+    <h1>{{ ranking_title }}</h1>
+    <p>{{ ranking_description }}</p>
+  </div>
+</section>
+
+<section class="container">
+  <div class="ranking-list">
+    {% for asset in assets %}
+    <a href="/asset/{{ asset.ticker }}" class="ranking-card">
+      <div class="ranking-rank">{{ loop.index }}</div>
+      <div>
+        <span class="asset-type">{{ asset_type_ko(asset.type) }}</span>
+        <h2>{{ asset.name }}</h2>
+        <p>{{ asset.auto_interpretation.summary }}</p>
+      </div>
+      <div class="ranking-metrics">
+        <div>
+          <span>버티기 난이도</span>
+          <strong>{{ asset.difficulty.score }}</strong>
+        </div>
+        <div>
+          <span>고점 대비</span>
+          <strong class="down">{{ fmt_pct(asset.metrics.ath_drawdown) }}</strong>
+        </div>
+        <div>
+          <span>현재 조정</span>
+          <strong>{{ fmt_days(asset.metrics.current_dd_days) }}</strong>
+        </div>
+      </div>
+    </a>
+    {% endfor %}
+  </div>
+</section>
+
+{% endblock %}
