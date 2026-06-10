@@ -46,7 +46,7 @@
         </div>
 
         <div class="evidence-link-grid">
-          {% for item in group.items %}
+          {% for item in group["items"] %}
           <a class="evidence-link-card" href="{{ item.url }}" target="_blank" rel="noopener">
             <span>{{ item.tag }}</span>
             <strong>{{ item.title }}</strong>

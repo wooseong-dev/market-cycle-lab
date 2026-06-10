@@ -4,7 +4,7 @@
 <section class="framework-hero {{ asset.theme }}">
   <div class="container framework-hero-grid">
     <div class="framework-hero-copy">
-      <p class="eyebrow">투자 프레임워크 · {{ asset.symbol }}</p>
+      <p class="eyebrow">투자 프레임워크 · {{ asset.ticker }}</p>
       <h1>{{ asset.name }}를 10개 계층으로 점검하기</h1>
       <p>
         이 페이지는 매수·매도 신호가 아니라, 내가 지금 어떤 기준으로 이 자산을 보고 있는지 정리하는 도구입니다.
@@ -159,7 +159,7 @@
         <span>{{ group.title }}</span>
         <strong>{{ group.description }}</strong>
         <div>
-          {% for item in group.items[:3] %}
+          {% for item in group["items"][:3] %}
           <a href="{{ item.url }}" target="_blank" rel="noopener">{{ item.title }}</a>
           {% endfor %}
         </div>
