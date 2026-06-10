@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+{% block content %}
+
+<section class="asset-hero {{ asset.theme }}">
+  <div class="container asset-hero-grid">
+    <div>
+      <p class="eyebrow">투자 프레임워크 · {{ asset.symbol }}</p>
+      <h1>{{ asset.name }}를 차트 하나가 아니라 10개 계층으로 보기</h1>
+      <p>
+        고수들은 차트 하나, PER 하나로 판단하지 않습니다.
+        자산배분, 매크로, 펀더멘털, 밸류에이션, 사이클, 수급, 차트, 심리, 리밸런싱, 리스크 관리를 함께 봅니다.
+      </p>
+    </div>
+
+    <div class="score-card">
+      <span>프레임워크 점수</span>
+      <strong>{{ framework.total_score }}</strong>
+      <p>{{ framework.verdict }}</p>
+      <small>{{ framework.verdict_detail }}</small>
+    </div>
+  </div>
+</section>
+
+<section class="container">
+
+  <div class="panel">
+    <form class="asset-search tool-search" action="/framework" method="get">
+      <label>분석 조건 입력</label>
+      <div>
+        <input name="symbol" value="{{ symbol }}" placeholder="BTC-USD, QQQ, NVDA, 005930.KS">
+
+        <select name="account_type">
+          <option value="core" {% if account_type == "core" %}selected{% endif %}>장기 핵심 계좌</option>
+          <option value="income" {% if account_type == "income" %}selected{% endif %}>월분배·현금흐름 계좌</option>
+          <option value="attack" {% if account_type == "attack" %}selected{% endif %}>공격 계좌</option>
+          <option value="trading" {% if account_type == "trading" %}selected{% endif %}>BTC·레버리지·트레이딩 계좌</option>
+        </select>
+
+        <input name="allocation_pct" value="{{ allocation_pct }}" type="number" step="1" min="0" max="100">
+
+        <select name="risk_tolerance">
+          <option value="low" {% if risk_tolerance == "low" %}selected{% endif %}>위험 감내 낮음</option>
+          <option value="medium" {% if risk_tolerance == "medium" %}selected{% endif %}>위험 감내 보통</option>
+          <option value="high" {% if risk_tolerance == "high" %}selected{% endif %}>위험 감내 높음</option>
+        </select>
+
+        <button type="submit">분석</button>
+      </div>
+
+      <div class="sub-form-row">
+        <select name="macro_view">
+          <option value="positive" {% if macro_view == "positive" %}selected{% endif %}>매크로 우호적</option>
+          <option value="neutral" {% if macro_view == "neutral" %}selected{% endif %}>매크로 중립</option>
+          <option value="negative" {% if macro_view == "negative" %}selected{% endif %}>매크로 비우호적</option>
+        </select>
+
+        <select name="valuation_view">
+          <option value="positive" {% if valuation_view == "positive" %}selected{% endif %}>가격 매력 있음</option>
+          <option value="neutral" {% if valuation_view == "neutral" %}selected{% endif %}>가격 중립</option>
+          <option value="negative" {% if valuation_view == "negative" %}selected{% endif %}>가격 부담 있음</option>
+        </select>
+
+        <select name="supply_view">
+          <option value="positive" {% if supply_view == "positive" %}selected{% endif %}>수급 우호적</option>
+          <option value="neutral" {% if supply_view == "neutral" %}selected{% endif %}>수급 중립</option>
+          <option value="negative" {% if supply_view == "negative" %}selected{% endif %}>수급 비우호적</option>
+        </select>
+
+        <select name="exit_rule">
+          <option value="yes" {% if exit_rule == "yes" %}selected{% endif %}>매도·축소 기준 있음</option>
+          <option value="no" {% if exit_rule == "no" %}selected{% endif %}>매도·축소 기준 없음</option>
+        </select>
+      </div>
+
+      <p>비중은 내 전체 포트폴리오에서 이 자산이 차지하는 비율입니다.</p>
+    </form>
+  </div>
+
+  <div class="panel framework-guide">
+    <p class="eyebrow">계좌 성격</p>
+    <h2>{{ framework.guide.label }}</h2>
+    <p class="ta-state">{{ framework.guide.goal }}</p>
+
+    <div class="insight-list">
+      {% for item in framework.guide.tools %}
+      <div>{{ item }}</div>
+      {% endfor %}
+    </div>
+
+    <p class="warning framework-warning">{{ framework.guide.warning }}</p>
+  </div>
+
+  <div class="framework-grid">
+    {% for layer in framework.layers %}
+    <article class="framework-card">
+      <div class="framework-card-top">
+        <div>
+          <p class="eyebrow">{{ loop.index }}단계</p>
+          <h2>{{ layer.name }}</h2>
+        </div>
+        <div class="mini-score">{{ layer.score }}</div>
+      </div>
+
+      <span class="framework-status">{{ layer.status }}</span>
+      <p>{{ layer.summary }}</p>
+
+      <ul>
+        {% for point in layer.points %}
+        <li>{{ point }}</li>
+        {% endfor %}
+      </ul>
+    </article>
+    {% endfor %}
+  </div>
+
+  <div class="panel framework-final">
+    <p class="eyebrow">최종 체크</p>
+    <h2>왕은 리스크 관리입니다</h2>
+    <p class="ta-state">
+      돈 오래 버는 사람들은 맞히는 능력보다 틀렸을 때 덜 죽는 능력이 더 좋습니다.
+      이 페이지의 목적은 매수·매도 신호가 아니라, 내가 지금 무엇을 하고 있는지 구분하게 만드는 것입니다.
+    </p>
+
+    <div class="checklist">
+      {% for item in framework.checklist %}
+      <label>
+        <input type="checkbox">
+        <span>{{ item }}</span>
+      </label>
+      {% endfor %}
+    </div>
+  </div>
+
+</section>
+
+{% endblock %}

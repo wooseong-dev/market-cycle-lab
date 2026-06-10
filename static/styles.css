@@ -1567,3 +1567,142 @@ body.chart-dragging * {
   .tool-search div { flex-direction: column; }
   .tool-search input, .tool-search select, .tool-search button { width: 100%; max-width: none !important; }
 }
+/* === 투자 프레임워크 분석 패치 === */
+
+.framework-guide {
+  margin-top: 18px;
+}
+
+.sub-form-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+.sub-form-row select,
+.tool-search select {
+  min-height: 46px;
+  border-radius: 999px;
+  border: 1px solid rgba(125, 211, 252, .22);
+  background: rgba(2, 6, 23, .82);
+  color: var(--text);
+  padding: 0 16px;
+  outline: none;
+}
+
+.framework-warning {
+  margin-top: 14px;
+}
+
+.framework-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 18px;
+  margin: 22px 0;
+}
+
+.framework-card {
+  border: 1px solid rgba(125, 211, 252, .14);
+  background:
+    radial-gradient(circle at 10% 0%, rgba(34, 211, 238, .08), transparent 35%),
+    linear-gradient(180deg, rgba(15, 23, 42, .9), rgba(8, 13, 28, .88));
+  border-radius: 24px;
+  padding: 20px;
+  box-shadow: 0 24px 70px rgba(0,0,0,.24);
+}
+
+.framework-card-top {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.framework-card h2 {
+  margin: 6px 0 10px;
+}
+
+.framework-card p {
+  color: var(--muted2);
+  line-height: 1.65;
+}
+
+.framework-card ul {
+  margin: 16px 0 0;
+  padding-left: 20px;
+}
+
+.framework-card li {
+  color: var(--muted);
+  margin: 8px 0;
+  line-height: 1.55;
+}
+
+.framework-status {
+  display: inline-flex;
+  border: 1px solid rgba(125, 211, 252, .22);
+  color: var(--neon);
+  background: rgba(34, 211, 238, .08);
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.mini-score {
+  width: 54px;
+  height: 54px;
+  border-radius: 18px;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, var(--neon), var(--neon2));
+  color: #020617;
+  font-size: 22px;
+  font-weight: 950;
+}
+
+.framework-final {
+  margin-bottom: 40px;
+}
+
+.checklist {
+  display: grid;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.checklist label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid rgba(125, 211, 252, .12);
+  background: rgba(255,255,255,.035);
+  border-radius: 16px;
+  padding: 12px;
+  color: var(--muted2);
+}
+
+.checklist input {
+  width: 18px;
+  height: 18px;
+}
+
+@media (max-width: 860px) {
+  .framework-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .sub-form-row,
+  .tool-search div {
+    flex-direction: column;
+  }
+
+  .sub-form-row select,
+  .tool-search select,
+  .tool-search input,
+  .tool-search button {
+    width: 100%;
+    max-width: none !important;
+  }
+}
