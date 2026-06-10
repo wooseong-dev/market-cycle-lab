@@ -21,6 +21,7 @@ from app.simulations import (
     parse_symbols_and_weights,
 )
 from app.investment_framework import build_framework_analysis
+from app.evidence import build_evidence, build_evidence_index
 
 settings = get_settings()
 
@@ -504,6 +505,7 @@ def framework_page(
         supply_view=supply_view,
         exit_rule=exit_rule,
     )
+    evidence = build_evidence(asset["ticker"], asset, fetch_news=False)
 
     return templates.TemplateResponse(
         "framework.html",
@@ -512,6 +514,7 @@ def framework_page(
             "settings": settings,
             "asset": asset,
             "framework": framework,
+            "evidence": evidence,
             "symbol": symbol,
             "account_type": account_type,
             "allocation_pct": allocation_pct,
@@ -522,6 +525,55 @@ def framework_page(
             "exit_rule": exit_rule,
             "page_title": f"{asset['name']} 투자 프레임워크 분석",
             "page_description": "자산배분, 매크로, 펀더멘털, 밸류에이션, 사이클, 수급, 차트, 심리, 리밸런싱, 리스크 관리 관점으로 분석합니다.",
+        },
+    )
+
+
+@app.get("/evidence", response_class=HTMLResponse)
+def evidence_index(request: Request):
+    return templates.TemplateResponse(
+        "evidence_list.html",
+        {
+            "request": request,
+            "settings": settings,
+            "items": build_evidence_index(),
+            "page_title": "근거 데이터 허브",
+            "page_description": "공시, 수급, ETF 플로우, 온체인, 매크로 자료와 관련 뉴스를 확인하는 근거 데이터 허브.",
+        },
+    )
+
+
+@app.get("/evidence/search")
+def evidence_search(symbol: str = Query("BTC-USD")):
+    return RedirectResponse(url=f"/evidence/{clean_symbol(symbol)}", status_code=302)
+
+
+@app.get("/evidence/{symbol:path}", response_class=HTMLResponse)
+def evidence_detail(symbol: str, request: Request):
+    cleaned = clean_symbol(symbol)
+
+    try:
+        asset = build_asset(cleaned)
+    except Exception:
+        asset = {
+            "ticker": cleaned,
+            "name": cleaned,
+            "symbol": cleaned,
+            "type": "Custom",
+            "theme": "growth",
+        }
+
+    evidence = build_evidence(cleaned, asset, fetch_news=True)
+
+    return templates.TemplateResponse(
+        "evidence_detail.html",
+        {
+            "request": request,
+            "settings": settings,
+            "asset": asset,
+            "evidence": evidence,
+            "page_title": f"{evidence['name']} 근거 데이터",
+            "page_description": f"{evidence['name']}의 공시, 수급, ETF 플로우, 온체인, 매크로, 뉴스 자료를 확인합니다.",
         },
     )
 
@@ -600,11 +652,16 @@ def sitemap():
         f"{base_url}/simulations/target",
         f"{base_url}/simulations/portfolio",
         f"{base_url}/framework",
+        f"{base_url}/evidence",
         f"{base_url}/analysis",
     ]
 
     for symbol in DEFAULT_ASSETS:
         urls.append(f"{base_url}/asset/{symbol}")
+        urls.append(f"{base_url}/evidence/{symbol}")
+
+    for symbol in ["005930.KS", "012450.KS"]:
+        urls.append(f"{base_url}/evidence/{symbol}")
 
     for post in load_analysis_posts():
         urls.append(f"{base_url}/analysis/{post['slug']}")

@@ -13,6 +13,7 @@
 
       <div class="framework-quick-nav">
         <a href="#framework-form">조건 수정</a>
+        <a href="#framework-evidence">근거 데이터</a>
         <a href="#framework-layers">10단계 보기</a>
         <a href="#framework-checklist">최종 체크</a>
       </div>
@@ -137,6 +138,34 @@
         </div>
       </details>
     </form>
+  </section>
+
+  <section id="framework-evidence" class="framework-evidence-panel">
+    <div class="framework-section-head">
+      <div>
+        <p class="eyebrow">근거 데이터 & 원자료</p>
+        <h2>뉴스보다 먼저 확인할 것들</h2>
+        <p>
+          이 자산의 공시, 수급, ETF 플로우, 온체인, 매크로 자료를 한 곳에서 확인합니다.
+          뉴스는 보조 자료이고, 원자료가 출발점입니다.
+        </p>
+      </div>
+      <a class="evidence-button" href="/evidence/{{ asset.ticker }}">전체 근거 보기</a>
+    </div>
+
+    <div class="evidence-mini-grid">
+      {% for group in evidence.groups[:3] %}
+      <article class="evidence-mini-card">
+        <span>{{ group.title }}</span>
+        <strong>{{ group.description }}</strong>
+        <div>
+          {% for item in group.items[:3] %}
+          <a href="{{ item.url }}" target="_blank" rel="noopener">{{ item.title }}</a>
+          {% endfor %}
+        </div>
+      </article>
+      {% endfor %}
+    </div>
   </section>
 
   <section class="framework-guide-panel">

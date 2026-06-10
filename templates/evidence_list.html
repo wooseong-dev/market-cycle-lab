@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block content %}
+
+<section class="evidence-hero">
+  <div class="container evidence-hero-grid">
+    <div>
+      <p class="eyebrow">Evidence Hub</p>
+      <h1>뉴스보다 먼저 원자료를 확인하기</h1>
+      <p>
+        가격 차트만 보지 않고 공시, 수급, ETF 플로우, 온체인, 금리, 산업 리포트로
+        투자 판단의 근거를 확인하는 공간입니다.
+      </p>
+    </div>
+
+    <form class="evidence-search" action="/evidence/search" method="get">
+      <label>종목 또는 자산 입력</label>
+      <div>
+        <input name="symbol" value="BTC-USD" placeholder="BTC-USD, QQQ, 005930.KS">
+        <button type="submit">근거 보기</button>
+      </div>
+      <p>한국 주식은 005930.KS처럼 입력하면 됩니다.</p>
+    </form>
+  </div>
+</section>
+
+<section class="container evidence-page">
+  <div class="framework-section-head">
+    <div>
+      <p class="eyebrow">바로가기</p>
+      <h2>자주 보는 근거 데이터</h2>
+    </div>
+  </div>
+
+  <div class="evidence-index-grid">
+    {% for item in items %}
+    <a class="evidence-index-card" href="/evidence/{{ item.symbol }}">
+      <span>{{ item.symbol }}</span>
+      <strong>{{ item.title }}</strong>
+      <p>{{ item.description }}</p>
+    </a>
+    {% endfor %}
+  </div>
+</section>
+
+{% endblock %}
